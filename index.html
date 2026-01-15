@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinic Sales Analytics Dashboard</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        /* --- Root Variables & Reset --- */
+        :root {
+            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            --secondary-gradient: linear-gradient(135deg, #3b82f6 0%, #2dd4bf 100%);
+            --accent-color: #ec4899;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border-radius: 16px;
+            --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            --font-main: 'Prompt', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: var(--font-main); 
+            background-color: var(--bg-color);
+            background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,0) 0, hsla(253,16%,7%,0) 50%), radial-gradient(at 50% 0%, hsla(225,39%,30%,0) 0, hsla(225,39%,30%,0) 50%), radial-gradient(at 100% 0%, hsla(339,49%,30%,0) 0, hsla(339,49%,30%,0) 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- Layout --- */
+        .dashboard-container { 
+            max-width: 1600px; 
+            margin: 0 auto; 
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 24px; 
+            box-shadow: var(--shadow-lg);
+            overflow: hidden; 
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.8);
+        }
+
+        /* --- Header --- */
+        .header { 
+            background: var(--primary-gradient); 
+            color: white; 
+            padding: 40px 30px; 
+            text-align: center; 
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+            animation: rotate 20s linear infinite;
+        }
+        
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .header h1 { font-size: 2.2em; margin-bottom: 8px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.2); position: relative; }
+        .header p { font-size: 1.1em; opacity: 0.95; font-weight: 300; position: relative; }
+
+        /* --- Controls Section --- */
+        .controls-container { 
+            background: white; 
+            padding: 25px 35px; 
+            border-bottom: 1px solid #e5e7eb; 
+            display: flex; 
+            gap: 20px; 
+            align-items: flex-end; 
+            flex-wrap: wrap; 
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .input-group label { font-size: 0.9em; font-weight: 600; color: var(--text-muted); }
+        .input-group input, .input-group select { 
+            padding: 10px 15px; 
+            border: 1px solid #d1d5db; 
+            border-radius: 10px; 
+            font-size: 15px; 
+            font-family: var(--font-main);
+            transition: all 0.2s; 
+            background-color: #f9fafb;
+        }
+        .input-group input:focus { border-color: #6366f1; outline: none; ring: 2px solid rgba(99, 102, 241, 0.2); background-color: white; }
+        
+        .compare-toggle-group { 
+            flex-direction: row; 
+            align-items: center; 
+            padding-left: 15px; 
+            border-left: 1px solid #e5e7eb; 
+            height: 45px;
+        }
+        .compare-toggle-group input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+        
+        #compareDateRange { display: none; gap: 15px; padding: 10px 15px; background-color: #f3f4f6; border-radius: 10px; align-items: flex-end; animation: slideDown 0.3s ease; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- Buttons --- */
+        .btn-group { display: flex; gap: 10px; margin-left: auto; }
+        
+        button {
+            border: none;
+            padding: 10px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 15px;
+            font-family: var(--font-main);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-btn { background: var(--text-main); color: white; }
+        .control-btn:hover:not(:disabled) { background: #000; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        
+        .summary-btn { background: var(--secondary-gradient); color: white; }
+        .summary-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+        
+        button:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* --- Main Content --- */
+        .main-content { padding: 40px; }
+        .initial-message { text-align: center; padding: 80px 20px; color: var(--text-muted); background: white; border-radius: 20px; border: 2px dashed #e5e7eb; }
+        .initial-message i { font-size: 4em; color: #d1d5db; margin-bottom: 20px; }
+
+        /* --- Stats Grid --- */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 25px; margin-bottom: 40px; }
+        
+        .stat-card { 
+            background: white; 
+            padding: 25px; 
+            border-radius: var(--border-radius); 
+            box-shadow: var(--shadow-sm); 
+            transition: all 0.3s ease; 
+            border: 1px solid #f0f0f0;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); border-color: #a855f7; }
+        
+        .stat-card::after {
+            content: ''; position: absolute; top: 0; right: 0; width: 100px; height: 100px;
+            background: linear-gradient(135deg, transparent 50%, rgba(99, 102, 241, 0.05) 100%);
+            border-radius: 0 0 0 100px;
+        }
+
+        .stat-value { font-size: 1.8em; font-weight: 700; color: var(--text-main); margin-bottom: 5px; line-height: 1.2; }
+        .stat-label { font-size: 0.95em; color: var(--text-muted); font-weight: 500; }
+        
+        .comparison { font-size: 0.75em; padding: 2px 8px; border-radius: 20px; vertical-align: middle; margin-left: 8px; display: inline-block;}
+        .positive { color: #059669; background-color: #d1fae5; }
+        .negative { color: #dc2626; background-color: #fee2e2; }
+        .neutral { color: #6b7280; background-color: #f3f4f6; }
+
+        /* --- Charts --- */
+        .section-title { 
+            font-size: 1.5em; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            margin-bottom: 25px; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+        }
+        .section-title::before { content: ''; display: block; width: 5px; height: 25px; background: var(--primary-gradient); border-radius: 5px; }
+
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(600px, 1fr)); gap: 30px; margin-bottom: 40px; }
+        .chart-container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: var(--border-radius); 
+            box-shadow: var(--shadow-sm); 
+            border: 1px solid #f0f0f0;
+        }
+        .chart-title { font-size: 1.2em; font-weight: 600; margin-bottom: 25px; color: var(--text-main); }
+        .chart-canvas { height: 350px; width: 100%; }
+
+        /* --- Tables --- */
+        .table-section { margin-bottom: 40px; }
+        .table-container { 
+            background: white; 
+            border-radius: var(--border-radius); 
+            box-shadow: var(--shadow-sm); 
+            overflow: hidden; 
+            border: 1px solid #f0f0f0;
+        }
+        .table-title { 
+            background: white; 
+            padding: 20px 25px; 
+            font-size: 1.2em; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            border-bottom: 1px solid #f0f0f0;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        
+        .table-content { max-height: 500px; overflow-y: auto; scrollbar-width: thin; }
+        .table-content::-webkit-scrollbar { width: 6px; }
+        .table-content::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 3px; }
+
+        table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        th { 
+            background: #f9fafb; 
+            color: var(--text-muted); 
+            font-weight: 600; 
+            padding: 15px 20px; 
+            text-align: left; 
+            font-size: 0.9em; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em;
+            position: sticky; top: 0; z-index: 10;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        td { 
+            padding: 15px 20px; 
+            border-bottom: 1px solid #f3f4f6; 
+            font-size: 0.95em; 
+            transition: background 0.1s;
+        }
+        tr:hover td { background-color: #f8fafc; }
+        tr:last-child td { border-bottom: none; }
+        
+        .clickable-cell { color: #4f46e5; font-weight: 600; cursor: pointer; text-decoration: none; border-bottom: 1px dashed #4f46e5; }
+        .clickable-cell:hover { color: #4338ca; border-bottom-style: solid; }
+
+        /* --- Insights & RFM --- */
+        .insights-container { display: flex; flex-direction: column; gap: 20px; }
+        .insights-text { background: #eff6ff; padding: 25px; border-radius: 12px; border-left: 5px solid #3b82f6; color: #1e3a8a; line-height: 1.7; }
+        .insights-text ul { margin-left: 20px; margin-top: 10px; }
+        
+        /* --- Modal --- */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(17, 24, 39, 0.7); backdrop-filter: blur(4px); opacity: 0; transition: opacity 0.3s; }
+        .modal.show { opacity: 1; }
+        
+        .modal-content { 
+            background-color: white; 
+            margin: 3% auto; 
+            padding: 0; 
+            width: 90%; 
+            max-width: 1000px; 
+            border-radius: 20px; 
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); 
+            position: relative; 
+            transform: translateY(20px); 
+            transition: transform 0.3s;
+            overflow: hidden;
+            display: flex; flex-direction: column;
+            max-height: 90vh;
+        }
+        .modal.show .modal-content { transform: translateY(0); }
+
+        .modal-header { padding: 20px 30px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { font-size: 1.25em; font-weight: 700; color: var(--text-main); margin: 0; }
+        .close-btn { color: #9ca3af; font-size: 24px; cursor: pointer; transition: color 0.2s; }
+        .close-btn:hover { color: #dc2626; }
+
+        .modal-body { padding: 30px; overflow-y: auto; }
+        .modal-controls { background: #f3f4f6; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+        
+        .checkbox-wrapper { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.95em; color: var(--text-main); cursor: pointer; user-select: none; }
+        .checkbox-wrapper input { width: 18px; height: 18px; accent-color: #6366f1; }
+
+        .modal-footer { padding: 20px 30px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: right; }
+
+        #aiSummaryText { width: 100%; height: 350px; padding: 20px; border: 1px solid #d1d5db; border-radius: 12px; font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.6; background-color: #fff; resize: vertical; }
+
+        /* --- Utility & Loading --- */
+        .loading { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 300px; color: var(--text-muted); }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .no-data { text-align: center; color: #9ca3af; padding: 50px; font-style: italic; }
+
+        @media (max-width: 1024px) {
+            .controls-container { flex-direction: column; align-items: stretch; }
+            .input-group { width: 100%; }
+            .btn-group { margin-left: 0; width: 100%; justify-content: space-between; }
+            .btn-group button { flex: 1; justify-content: center; }
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="header">
+            <h1><i class="fa-solid fa-chart-line"></i> Clinic Sales Dashboard</h1>
+            <p>รายงานและวิเคราะห์ยอดขายคลินิกความงาม</p>
+        </div>
+        
+        <div class="controls-container">
+            <div class="input-group" style="flex: 2; min-width: 250px;">
+                <label for="fileInput"><i class="fa-solid fa-file-excel"></i> เลือกไฟล์ Excel ข้อมูลขาย</label>
+                <input type="file" id="fileInput" accept=".xlsx, .xls, .csv">
+            </div>
+            
+            <div class="input-group">
+                <label for="startDate">วันที่เริ่มต้น</label>
+                <input type="date" id="startDate" disabled>
+            </div>
+            
+            <div class="input-group">
+                <label for="endDate">วันที่สิ้นสุด</label>
+                <input type="date" id="endDate" disabled>
+            </div>
+            
+            <div class="input-group compare-toggle-group">
+                <input type="checkbox" id="compareToggle" disabled>
+                <label for="compareToggle">เปรียบเทียบช่วงเวลา</label>
+            </div>
+            
+            <div id="compareDateRange">
+                <div class="input-group">
+                    <label>เริ่ม (เทียบ)</label>
+                    <input type="date" id="compareStartDate" disabled>
+                </div>
+                <div class="input-group">
+                    <label>สิ้นสุด (เทียบ)</label>
+                    <input type="date" id="compareEndDate" disabled>
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button class="control-btn" id="filterButton" onclick="filterData()" disabled>
+                    <i class="fa-solid fa-magnifying-glass"></i> กรองข้อมูล
+                </button>
+                <button class="summary-btn" id="aiSummaryButton" onclick="generateAISummary()" disabled>
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> สรุปด้วย AI
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="initial-message">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <h2>ยินดีต้อนรับสู่ระบบวิเคราะห์ข้อมูล</h2>
+                <p>กรุณาอัปโหลดไฟล์ Excel (.xlsx, .csv) เพื่อเริ่มต้นแสดงผล Dashboard</p>
+                <p style="font-size: 0.9em; margin-top: 10px; color: #9ca3af;">ระบบจะประมวลผลในเครื่องของคุณ (Local) ข้อมูลจะไม่ถูกส่งออกไปภายนอก</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="customerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">รายละเอียดข้อมูล</h2>
+                <span class="close-btn" onclick="closeModal('customerModal')">&times;</span>
+            </div>
+            <div class="modal-body" id="modalBody">
+                </div>
+        </div>
+    </div>
+    
+    <div id="aiSummaryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title"><i class="fa-brands fa-google"></i> เตรียมข้อมูลสำหรับ Gemini AI</h2>
+                <span class="close-btn" onclick="closeModal('aiSummaryModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 10px; color: #6b7280;">ข้อมูลด้านล่างถูกสรุปอัตโนมัติ กดปุ่ม "คัดลอก" แล้วนำไปวางใน Gemini เพื่อขอคำแนะนำเชิงกลยุทธ์</p>
+                <textarea id="aiSummaryText" readonly></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="control-btn" onclick="copyAIPrompt(this)" style="margin-left: auto;">
+                    <i class="fa-regular fa-copy"></i> คัดลอกข้อมูล
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Setting Default Chart Defaults to match new Theme ---
+        Chart.defaults.font.family = "'Prompt', sans-serif";
+        Chart.defaults.color = '#6b7280';
+        Chart.defaults.scale.grid.color = '#f3f4f6';
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(17, 24, 39, 0.9)';
+        Chart.defaults.plugins.tooltip.padding = 12;
+        Chart.defaults.plugins.tooltip.cornerRadius = 8;
+
+        // --- Global Variables (Same Logic) ---
+        let rawData = [], filteredData = [], compareFilteredData = [], charts = {}, currentModalCustomers = [], rfmSegmentData = {};
+        
+        const fileInputElement = document.getElementById('fileInput'), 
+              startDateElement = document.getElementById('startDate'),
+              endDateElement = document.getElementById('endDate'), 
+              filterButtonElement = document.getElementById('filterButton'),
+              mainContentElement = document.querySelector('.main-content'), 
+              compareToggleElement = document.getElementById('compareToggle'),
+              compareDateRangeElement = document.getElementById('compareDateRange'), 
+              compareStartDateElement = document.getElementById('compareStartDate'),
+              compareEndDateElement = document.getElementById('compareEndDate'), 
+              aiSummaryButton = document.getElementById('aiSummaryButton');
+        
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', setDefaultDates);
+        fileInputElement.addEventListener('change', handleFile);
+        compareToggleElement.addEventListener('change', () => {
+            compareDateRangeElement.style.display = compareToggleElement.checked ? 'flex' : 'none';
+            if (!compareToggleElement.checked) filterData();
+        });
+
+        // --- Exposed Functions ---
+        window.filterData = filterData;
+        window.closeModal = closeModal;
+        window.showCustomersForCategory = showCustomersForCategory;
+        window.sortAndRenderModal = sortAndRenderModal;
+        window.generateAISummary = generateAISummary;
+        window.copyAIPrompt = copyAIPrompt;
+        window.showCustomersForSegment = showCustomersForSegment;
+        window.toggleRepeatFilter = toggleRepeatFilter;
+
+        // --- Helper Functions ---
+        function setDefaultDates() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            endDateElement.value = `${year}-${month}-${day}`;
+            startDateElement.value = `${year}-${month}-01`; 
+        }
+
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.style.display = 'block';
+            setTimeout(() => modal.classList.add('show'), 10);
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.remove('show');
+            setTimeout(() => modal.style.display = 'none', 300);
+        }
+
+        // --- Logic Functions (UNCHANGED LOGIC, just rendering adjustments) ---
+        function handleFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => processData(new Uint8Array(event.target.result));
+            reader.onerror = (error) => mainContentElement.innerHTML = `<div class="no-data"><h3>เกิดข้อผิดพลาด</h3><p>${error}</p></div>`;
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processData(fileData) {
+            try {
+                mainContentElement.innerHTML = `<div class="loading"><div class="spinner"></div><p>กำลังประมวลผลข้อมูล...</p></div>`;
+                const workbook = XLSX.read(fileData, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: false });
+                
+                if (jsonData.length === 0) throw new Error('ไม่พบข้อมูลในไฟล์ Excel');
+                
+                rawData = jsonData.map((row) => {
+                    if (!row) return null;
+                    let amt = 0;
+                    if (row['ยอดชำระ']) {
+                        if (typeof row['ยอดชำระ'] === 'number') amt = row['ยอดชำระ'];
+                        else amt = parseFloat(row['ยอดชำระ'].toString().replace(/[,\s]/g, '')) || 0;
+                    }
+                    let phoneValue = row['เบอร์โทร'] || row['โทรศัพท์'] || row['Phone'] || row['Tel'] || row['เบอร์โทรศัพท์'];
+                    let phoneStr = (phoneValue !== null && phoneValue !== undefined) ? String(phoneValue) : '-';
+                    return { ...row, 'ยอดชำระ': amt, 'เบอร์โทร': phoneStr, 'โทรศัพท์': phoneStr };
+                }).filter(r => r !== null);
+
+                let minDate = null, maxDate = null;
+                rawData.forEach(row => {
+                    const rowDate = parseThaiDate(row['วันที่ขาย']);
+                    if (rowDate) {
+                        if (!minDate || rowDate < minDate) minDate = rowDate;
+                        if (!maxDate || rowDate > maxDate) maxDate = rowDate;
+                    }
+                });
+
+                if (minDate && maxDate) {
+                    startDateElement.value = formatDateToInput(minDate);
+                    endDateElement.value = formatDateToInput(maxDate);
+                }
+                
+                showDashboardContent();
+                [startDateElement, endDateElement, filterButtonElement, compareToggleElement, compareStartDateElement, compareEndDateElement, aiSummaryButton].forEach(el => el.disabled = false);
+                filterData();
+            } catch (error) {
+                console.error(error);
+                mainContentElement.innerHTML = `<div class="no-data"><h3>ไม่สามารถอ่านไฟล์ได้</h3><p>${error.message}</p></div>`;
+            }
+        }
+        
+        function formatDateToInput(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function filterData() {
+            try {
+                const startStr = startDateElement.value;
+                const endStr = endDateElement.value;
+                if (!startStr || !endStr) return;
+
+                const sParts = startStr.split('-');
+                const startDate = new Date(parseInt(sParts[0]), parseInt(sParts[1]) - 1, parseInt(sParts[2]));
+                const eParts = endStr.split('-');
+                const endDate = new Date(parseInt(eParts[0]), parseInt(eParts[1]) - 1, parseInt(eParts[2]));
+                endDate.setHours(23, 59, 59, 999);
+                
+                filteredData = rawData.filter(row => {
+                    const rowDate = parseThaiDate(row['วันที่ขาย']);
+                    return rowDate && rowDate >= startDate && rowDate <= endDate;
+                });
+
+                compareFilteredData = [];
+                if (compareToggleElement.checked) {
+                    const csStr = compareStartDateElement.value;
+                    const ceStr = compareEndDateElement.value;
+                    if(csStr && ceStr) {
+                        const csParts = csStr.split('-');
+                        const compareStartDate = new Date(parseInt(csParts[0]), parseInt(csParts[1]) - 1, parseInt(csParts[2]));
+                        const ceParts = ceStr.split('-');
+                        const compareEndDate = new Date(parseInt(ceParts[0]), parseInt(ceParts[1]) - 1, parseInt(ceParts[2]));
+                        compareEndDate.setHours(23, 59, 59, 999);
+                        compareFilteredData = rawData.filter(row => {
+                            const rowDate = parseThaiDate(row['วันที่ขาย']);
+                            return rowDate && rowDate >= compareStartDate && rowDate <= compareEndDate;
+                        });
+                    }
+                }
+                updateDashboard();
+            } catch (error) { console.error(error); }
+        }
+
+        function parseThaiDate(dateInput) {
+            if (dateInput instanceof Date) return dateInput;
+            if (!dateInput || typeof dateInput !== 'string') return null;
+            try {
+                const dateStr = dateInput.trim();
+                const parts = dateStr.split('/');
+                if (parts.length !== 3) return null;
+                let day = parseInt(parts[0], 10), month = parseInt(parts[1], 10) - 1, year = parseInt(parts[2], 10);
+                if (year > 2500) year -= 543;
+                if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+                return new Date(year, month, day);
+            } catch (error) { return null; }
+        }
+        
+        // --- Categories Logic (Preserved) ---
+        function getCategoryForRow(row) {
+            let name = (row['รายการ'] || '').toString().toLowerCase().trim();
+            if (!name) return 'อื่นๆ';
+            if (name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตัดปีก') || name.includes('ตาสองชั้น') || name.includes('กรีดตา') || name.includes('แก้จมูก') || name.includes('ขูดจมูก') || name.includes('ถอดซิลิโคน') || name.includes('เย็บ') || (name.includes('ตัดไหม') && !name.includes('pico'))) return 'Surgery';
+            if (name.includes('morpheus')) return 'Morpheus8';
+            if (name.includes('ultraformer') || name.includes('ultra fromer')) return 'Ultraformer';
+            if (name.includes('sculptra')) return 'Sculptra';
+            if (name.includes('virgin') || name.includes('เก้าอี้')) return 'Virgin Repair';
+            if (name.includes('aesthe')) return 'AestheFill';
+            if (name.includes('gouri') || name.includes('juvelook') || name.includes('profhilo') || name.includes('radiesse')) return 'Biostimulator';
+            if (name.includes('ไหม') || name.includes('thread') || name.includes('mint') || name.includes('pdo') || name.includes('pcl') || name.includes('hiko') || name.includes('misko') || name.includes('log')) return 'Thread Lift';
+            if (name.includes('pico') || name.includes('antidark') || name.includes('dual yellow') || name.includes('v-beam') || name.includes('helios') || name.includes('laser studio')) return 'Pico / Laser Skin';
+            if (name.includes('co2')) return 'Co2';
+            if ((name.includes('diode') || name.includes('ipl') || name.includes('dio laser')) && (name.includes('หน้าใส') || name.includes('รอย') || name.includes('ฝ้า') || name.includes('reju'))) return 'Laser Skin';
+            if (name.includes('diode') || name.includes('กำจัดขน') || name.includes('yag') || name.includes('hair removal') || name.includes('ขนรักแร้') || name.includes('ขนขา') || name.includes('หนวด') || name.includes('เครา') || name.includes('bikini') || name.includes('brazilian') || name.includes('hollywood') || name.includes('ipl') || name.includes('monostar')) return 'Hair Removal';
+            if (name.includes('laser') || name.includes('cpl') || name.includes('led') || name.includes('evo') || name.includes('q-switch') || name.includes('q switch') || name.includes('ฉายแสง')) return 'Laser Skin';
+            if (name.includes('meso') || name.includes('made') || name.includes('rejuran') || name.includes('exosome') || name.includes('asce') || name.includes('chanel') || name.includes('cytocare') || name.includes('l\'ebss') || name.includes('prp') || name.includes('stemcell') || name.includes('skin booster') || name.includes('glass skin') || name.includes('booster') || name.includes('seen skin') || name.includes('filorga') || name.includes('aquatic') || name.includes('guna') || name.includes('collagen')) return 'Meso / Skin Booster';
+            if (name.includes('fat') || name.includes('body') || name.includes('slim') || name.includes('babi') || name.includes('bromi') || name.includes('sisi') || name.includes('pms') || name.includes('vela') || name.includes('saxanda') || name.includes('l-carnitine') || name.includes('ปากกาลดน้ำหนัก') || name.includes('g5')) return 'Fat / Body';
+            if (name.includes('lifting') || name.includes('hifu') || name.includes('ulthera') || name.includes('thermage') || name.includes('rf') || name.includes('venus') || name.includes('face lock')) return 'HIFU / Lifting';
+            if (name.includes('botox') || name.includes('aestox') || name.includes('nabota') || name.includes('allergan') || name.includes('xeomin') || name.includes('dysport') || name.includes('hugel') || name.includes('neuronox') || name.includes('botulax') || name.includes('bienox') || name.includes('hutox') || name.includes('ริ้วรอย') || name.includes('กราม')) return 'Botox';
+            if (name.includes('filler') || name.includes('restylane') || name.includes('juvederm') || name.includes('neuramis') || name.includes('belotero') || name.includes('e.p.t.q') || name.includes('eptq') || name.includes('flore') || name.includes('yvoire') || name.includes('volux') || name.includes('ขมับ') || name.includes('ร่องแก้ม')) return 'Filler';
+            if (name.includes('drip') || name.includes('vitamin') || name.includes('vit') || name.includes('iv') || name.includes('push') || name.includes('nad') || name.includes('white') || name.includes('aura') || name.includes('chelation') || name.includes('transamin') || name.includes('cinderella') || name.includes('myers') || name.includes('snow') || name.includes('multvita')) return 'Drip / Vitamin';
+            if (name.includes('treatment') || name.includes('acne') || name.includes('กดสิว') || name.includes('ฉีดสิว') || name.includes('mask') || name.includes('มาร์ค') || name.includes('cryo') || name.includes('phono') || name.includes('subcision') || name.includes('derma') || name.includes('peeling') || name.includes('aha') || name.includes('tca') || name.includes('keloid') || name.includes('สลาย')) return 'Treatment / Acne';
+            if (name.includes('ยา') || name.includes('medicine') || name.includes('xylocaine') || name.includes('b-100') || name.includes('b-12') || name.includes('b12') || name.includes('เข็ม') || name.includes('syringe') || name.includes('cannula') || name.includes('needle') || name.includes('cool gel') || name.includes('หมวก') || name.includes('เบิร์น') || name.includes('อาหารเสริม') || name.includes('calcium')) return 'Pharmacy / Supplies';
+            if (name.includes('วงเงิน') || name.includes('บัตร') || name.includes('credit')) return 'Credit / Balance';
+            return 'อื่นๆ';
+        }
+
+        function showDashboardContent() {
+            mainContentElement.innerHTML = `
+                <div class="section-title"><i class="fa-solid fa-chart-pie"></i> ภาพรวมธุรกิจ (Business Overview)</div>
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-value" id="totalRevenue">-</div><div class="stat-label">ยอดขายรวม (บาท)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="totalVisits">-</div><div class="stat-label">จำนวนการเข้าใช้บริการ (Visits)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="totalCustomers">-</div><div class="stat-label">จำนวนลูกค้าทั้งหมด (HN ไม่ซ้ำ)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="payingCustomers">-</div><div class="stat-label">ลูกค้าที่มียอดชำระ (Paying Users)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="repeatCustomers">-</div><div class="stat-label">ลูกค้ากลับมาซ้ำ (Returning)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="repeatRate">-</div><div class="stat-label">อัตราลูกค้าซื้อซ้ำ (Repeat Rate)</div></div>
+                </div>
+
+                <div class="section-title"><i class="fa-solid fa-chart-column"></i> กราฟวิเคราะห์ (Analytics)</div>
+                <div class="charts-grid">
+                    <div class="chart-container"><div class="chart-title">📈 แนวโน้มยอดขายรายวัน</div><canvas id="dailySalesChart" class="chart-canvas"></canvas></div>
+                    <div class="chart-container"><div class="chart-title">🛍️ สัดส่วนยอดขายตามหมวดหมู่</div><canvas id="categoryChart" class="chart-canvas"></canvas></div>
+                    <div class="chart-container"><div class="chart-title">📅 ยอดขายรายเดือน</div><canvas id="monthlySalesChart" class="chart-canvas"></canvas></div>
+                    <div class="chart-container"><div class="chart-title">🎯 RFM Analysis (การแบ่งกลุ่มลูกค้า)</div><canvas id="recencyFrequencyPlot" class="chart-canvas"></canvas></div>
+                    <div class="chart-container"><div class="chart-title">📊 ความถี่การใช้บริการ</div><canvas id="frequencyDistributionChart" class="chart-canvas"></canvas></div>
+                    <div class="chart-container"><div class="chart-title">💠 Performance Matrix (Top Items)</div><canvas id="performanceMatrixChart" class="chart-canvas"></canvas></div>
+                </div>
+                
+                <div class="section-title"><i class="fa-solid fa-user-tag"></i> กลยุทธ์ลูกค้า (Customer Insight & Action)</div>
+                <div id="rfmInsightsContainer"></div>
+
+                <div class="section-title"><i class="fa-solid fa-table-list"></i> ตารางข้อมูลละเอียด (Detailed Reports)</div>
+                
+                <div class="table-section">
+                    <div class="table-container">
+                        <div class="table-title"><span>📊 ยอดขายแยกตามหมวดหมู่</span> <i class="fa-solid fa-layer-group" style="color:#d1d5db"></i></div>
+                        <div class="table-content">
+                            <table id="categoryStatsTable">
+                                <thead><tr><th>หมวดหมู่</th><th>HN ไม่ซ้ำ</th><th>HN ที่จ่าย</th><th>ยอดรวม (บาท)</th><th>กลับมาซ้ำ</th></tr></thead>
+                                <tbody id="categoryStatsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                 <div class="table-section">
+                    <div class="table-container">
+                        <div class="table-title"><span>🏆 10 อันดับบริการยอดฮิต</span> <i class="fa-solid fa-trophy" style="color:#fbbf24"></i></div>
+                        <div class="table-content">
+                            <table>
+                                <thead><tr><th>อันดับ</th><th>รายการ</th><th>ยอดขายรวม (บาท)</th><th>จำนวนที่ขาย</th><th>ราคาเฉลี่ย</th><th>ลูกค้าไม่ซ้ำ</th></tr></thead>
+                                <tbody id="performanceMatrixBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-section">
+                    <div class="table-container">
+                        <div class="table-title"><span>👥 ข้อมูลลูกค้าทั้งหมด (รายบุคคล)</span> <i class="fa-solid fa-users" style="color:#d1d5db"></i></div>
+                        <div class="table-content">
+                            <table>
+                                <thead><tr><th>HN</th><th>ชื่อ-สกุล</th><th>เบอร์โทร</th><th>จำนวนครั้ง</th><th>ยอดรวม (บาท)</th><th>รายการ (ล่าสุด)</th><th>มาล่าสุด</th></tr></thead>
+                                <tbody id="allCustomersBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-section">
+                    <div class="table-container">
+                        <div class="table-title"><span>📝 ประวัติรายการขายทั้งหมด (Log)</span> <i class="fa-solid fa-list" style="color:#d1d5db"></i></div>
+                        <div class="table-content">
+                            <table>
+                                <thead><tr><th>ลำดับ</th><th>วันที่</th><th>HN</th><th>ชื่อ-สกุล</th><th>รายการ</th><th>ยอดชำระ</th></tr></thead>
+                                <tbody id="transactionHistoryBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-section">
+                    <div class="table-container">
+                        <div class="table-title"><span>🔄 ลูกค้าเก่า (Repeat Customers)</span> <i class="fa-solid fa-rotate-right" style="color:#d1d5db"></i></div>
+                        <div class="table-content">
+                            <table>
+                                <thead><tr><th>HN</th><th>ชื่อ-สกุล</th><th>เบอร์โทร</th><th>ครั้ง</th><th>วัน</th><th>ยอดรวม</th><th>รายการ</th><th>มาล่าสุด</th></tr></thead>
+                                <tbody id="repeatCustomersBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-section">
+                    <div class="table-container">
+                        <div class="table-title"><span>💎 Top Spenders (20 อันดับ)</span> <i class="fa-regular fa-gem" style="color:#ec4899"></i></div>
+                        <div class="table-content">
+                            <table>
+                                <thead><tr><th>อันดับ</th><th>HN</th><th>ชื่อ-สกุล</th><th>เบอร์โทร</th><th>รายการที่ซื้อ</th><th>ยอดรวม (บาท)</th></tr></thead>
+                                <tbody id="topSpendersBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateDashboard() {
+            updateStats();
+            updateCharts();
+            rfmSegmentData = calculateRFMSegments();
+            updateRecencyFrequencyPlot(rfmSegmentData);
+            updateRFMInsights(rfmSegmentData);
+            updateCategoryStatsTable();
+            updatePerformanceMatrix();
+            updateAllCustomersTable(); 
+            updateTransactionHistoryTable();
+            updateRepeatCustomersTable();
+            updateTopSpendersTable();
+        }
+
+        // --- Chart & Stats Update Functions (Logic kept largely same, Styling improved via CSS/Config) ---
+        function updateStats() {
+            const calcStats = (data) => {
+                if (!data || data.length === 0) return { totalCustomers: 0, payingCustomers: 0, totalRevenue: 0, repeatCustomers: 0, totalVisits: 0, repeatRate: 0 };
+                const uniqueHN = new Set(data.map(r => r.HN).filter(hn => hn));
+                const payingHN = new Set(data.filter(r => (r['ยอดชำระ'] || 0) > 0).map(r => r.HN).filter(hn => hn));
+                const totalRevenue = data.reduce((sum, r) => sum + (r['ยอดชำระ'] || 0), 0);
+                const hnVisits = data.reduce((acc, r) => { 
+                    if(r.HN && r['วันที่ขาย']) (acc[r.HN] = acc[r.HN] || new Set()).add(r['วันที่ขาย']); 
+                    return acc; 
+                }, {});
+                const totalVisits = Object.values(hnVisits).reduce((sum, dates) => sum + dates.size, 0);
+                const repeatCustomersCount = Object.values(hnVisits).filter(dates => dates.size > 1).length;
+                const repeatRate = uniqueHN.size > 0 ? (repeatCustomersCount / uniqueHN.size) * 100 : 0;
+                return { totalCustomers: uniqueHN.size, payingCustomers: payingHN.size, totalRevenue, repeatCustomers: repeatCustomersCount, totalVisits, repeatRate };
+            };
+            
+            const currentStats = calcStats(filteredData);
+            const compareStats = compareFilteredData.length > 0 ? calcStats(compareFilteredData) : null;
+            
+            const updateStatEl = (id, val, compareVal, isMoney = false, isPct = false) => {
+                const el = document.getElementById(id);
+                let displayVal = val.toLocaleString();
+                if (isMoney) displayVal = val.toLocaleString('th-TH', {minimumFractionDigits: 2});
+                if (isPct) displayVal = val.toFixed(1) + '%';
+                
+                let html = displayVal;
+                if (compareStats) {
+                    html += formatPercentageChange(val, compareVal);
+                }
+                el.innerHTML = html;
+            };
+
+            updateStatEl('totalCustomers', currentStats.totalCustomers, compareStats?.totalCustomers);
+            updateStatEl('totalVisits', currentStats.totalVisits, compareStats?.totalVisits);
+            updateStatEl('payingCustomers', currentStats.payingCustomers, compareStats?.payingCustomers);
+            updateStatEl('totalRevenue', currentStats.totalRevenue, compareStats?.totalRevenue, true);
+            updateStatEl('repeatCustomers', currentStats.repeatCustomers, compareStats?.repeatCustomers);
+            updateStatEl('repeatRate', currentStats.repeatRate, compareStats?.repeatRate, false, true);
+        }
+
+        function updateCharts() { 
+            Object.values(charts).forEach(chart => chart.destroy()); 
+            charts = {}; 
+            updateDailySalesChart(); 
+            updateCategoryChart(); 
+            updateMonthlySalesChart(); 
+            updateFrequencyDistributionChart();
+            updatePerformanceMatrixChart();
+        }
+
+        function createEmptyChart(chartId, type, title) {
+            const ctx = document.getElementById(chartId)?.getContext('2d');
+            if (!ctx) return;
+            charts[chartId] = new Chart(ctx, { 
+                type, 
+                data: { labels: ['ไม่มีข้อมูล'], datasets: [{ data: [1], backgroundColor: '#e5e7eb' }] }, 
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        title: { display: true, text: title || 'ไม่มีข้อมูล', font: {size: 16} },
+                        legend: { display: false }
+                    },
+                    scales: { x: {display: false}, y: {display: false} }
+                }
+            });
+        }
+        
+        // --- Chart Implementations (Optimized Colors) ---
+        function updateDailySalesChart() {
+            const chartId = 'dailySalesChart';
+            if (!filteredData.length) { createEmptyChart(chartId, 'line', 'ยอดขายรายวัน'); return; }
+            const processDaily = data => data.reduce((acc, row) => {
+                const dateStr = row['วันที่ขาย'];
+                if (dateStr) acc[dateStr] = (acc[dateStr] || 0) + (row['ยอดชำระ'] || 0);
+                return acc;
+            }, {});
+            const currentDaily = processDaily(filteredData);
+            const datasets = [{ 
+                label: 'ยอดขาย (ปัจจุบัน)', data: [], borderColor: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 6
+            }];
+            const allDates = new Set(Object.keys(currentDaily));
+            if (compareFilteredData.length > 0) {
+                const compareDaily = processDaily(compareFilteredData);
+                Object.keys(compareDaily).forEach(d => allDates.add(d));
+                datasets.push({ 
+                    label: 'ยอดขาย (เปรียบเทียบ)', data: [], borderColor: '#9ca3af', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5], tension: 0.4, pointRadius: 0
+                });
+                const sortedDates = [...allDates].sort((a, b) => parseThaiDate(a) - parseThaiDate(b));
+                datasets[0].data = sortedDates.map(d => currentDaily[d] || null);
+                datasets[1].data = sortedDates.map(d => compareDaily[d] || null);
+                renderLineChart(chartId, sortedDates, datasets);
+            } else {
+                const sortedDates = [...allDates].sort((a, b) => parseThaiDate(a) - parseThaiDate(b));
+                datasets[0].data = sortedDates.map(d => currentDaily[d]);
+                renderLineChart(chartId, sortedDates, datasets);
+            }
+        }
+        
+        function renderLineChart(id, labels, datasets) {
+            const ctx = document.getElementById(id)?.getContext('2d');
+            if(!ctx) return;
+            charts[id] = new Chart(ctx, { 
+                type: 'line', 
+                data: { labels, datasets }, 
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    interaction: { mode: 'index', intersect: false },
+                    scales: { y: { beginAtZero: true, grid: { display: true, borderDash: [2, 2] } }, x: { grid: { display: false } } } 
+                } 
+            });
+        }
+
+        function updateCategoryChart() {
+            const chartId = 'categoryChart';
+            const ctx = document.getElementById(chartId)?.getContext('2d');
+            const payingData = filteredData.filter(row => row['ยอดชำระ'] > 0);
+            if (!payingData.length) { createEmptyChart(chartId, 'doughnut', 'ยอดขายตามหมวดหมู่'); return; }
+            const categoryData = payingData.reduce((acc, row) => {
+                const category = getCategoryForRow(row);
+                if (category) acc[category] = (acc[category] || 0) + (row['ยอดชำระ'] || 0);
+                return acc;
+            }, {});
+            const sortedCategories = Object.entries(categoryData).sort(([, a], [, b]) => b - a).slice(0, 8);
+            
+            // Modern Colors
+            const colors = ['#6366f1', '#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#6b7280'];
+            
+            charts[chartId] = new Chart(ctx, { 
+                type: 'doughnut', 
+                data: { 
+                    labels: sortedCategories.map(([c]) => c), 
+                    datasets: [{ 
+                        data: sortedCategories.map(([, a]) => a), 
+                        backgroundColor: colors,
+                        borderWidth: 0,
+                        hoverOffset: 15
+                    }] 
+                }, 
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    plugins: { legend: { position: 'right', labels: { usePointStyle: true, padding: 20 } } },
+                    cutout: '65%'
+                } 
+            });
+        }
+
+        function updateMonthlySalesChart() {
+            // ... Similar logic but with Bar chart styling ...
+             const chartId = 'monthlySalesChart';
+            const ctx = document.getElementById(chartId)?.getContext('2d');
+            if (!filteredData.length) { createEmptyChart(chartId, 'bar', 'ยอดขายรายเดือน'); return; }
+            
+            const processMonthly = data => data.reduce((acc, row) => {
+                const date = parseThaiDate(row['วันที่ขาย']);
+                if (date) {
+                    const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                    acc[monthKey] = (acc[monthKey] || 0) + (row['ยอดชำระ'] || 0);
+                }
+                return acc;
+            }, {});
+            const currentMonthly = processMonthly(filteredData);
+            const allMonths = new Set(Object.keys(currentMonthly));
+            const datasets = [{ label: 'ยอดขาย', data: [], backgroundColor: '#3b82f6', borderRadius: 6 }];
+            
+            if (compareFilteredData.length > 0) {
+                 const compareMonthly = processMonthly(compareFilteredData);
+                 Object.keys(compareMonthly).forEach(k => allMonths.add(k));
+                 datasets[0].label = 'ปัจจุบัน';
+                 datasets.push({ label: 'เปรียบเทียบ', data: [], backgroundColor: '#cbd5e1', borderRadius: 6 });
+                 const sortedMonths = [...allMonths].sort();
+                 datasets[0].data = sortedMonths.map(k => currentMonthly[k] || 0);
+                 datasets[1].data = sortedMonths.map(k => compareMonthly[k] || 0);
+                 renderBarChart(chartId, sortedMonths.map(k => new Date(k+'-01').toLocaleDateString('th-TH', {month:'short', year:'2-digit'})), datasets);
+            } else {
+                 const sortedMonths = [...allMonths].sort();
+                 datasets[0].data = sortedMonths.map(k => currentMonthly[k] || 0);
+                 renderBarChart(chartId, sortedMonths.map(k => new Date(k+'-01').toLocaleDateString('th-TH', {month:'short', year:'2-digit'})), datasets);
+            }
+        }
+
+        function renderBarChart(id, labels, datasets) {
+            const ctx = document.getElementById(id)?.getContext('2d');
+            if(!ctx) return;
+            charts[id] = new Chart(ctx, { 
+                type: 'bar', data: { labels, datasets }, 
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } },
+                    barPercentage: 0.6, categoryPercentage: 0.8
+                } 
+            });
+        }
+
+        // --- RFM Calculation (Kept logic, simplified variable access) ---
+        function getQuartiles(data) {
+            if (data.length === 0) return [0, 0, 0];
+            const sorted = [...data].sort((a, b) => a - b);
+            return [
+                sorted[Math.floor(sorted.length / 4)],
+                sorted[Math.floor(sorted.length / 2)],
+                sorted[Math.floor((3 * sorted.length) / 4)]
+            ];
+        }
+
+        function calculateRFMSegments() {
+             const payingData = filteredData.filter(row => row['ยอดชำระ'] > 0);
+            if (!payingData.length) return { loyal: [], atRisk: [], newCust: [], lost: [] };
+            
+            const eParts = endDateElement.value.split('-');
+            const endDate = new Date(parseInt(eParts[0]), parseInt(eParts[1]) - 1, parseInt(eParts[2]));
+            
+            const hnData = payingData.reduce((acc, row) => {
+                const hn = row['HN'];
+                const visitDate = parseThaiDate(row['วันที่ขาย']);
+                if (hn && visitDate) {
+                    if (!acc[hn]) acc[hn] = new Set();
+                    acc[hn].add(visitDate.toISOString().split('T')[0]);
+                }
+                return acc;
+            }, {});
+
+            const customerRF = Object.keys(hnData).map(hn => {
+                const dates = hnData[hn];
+                const sortedDates = [...dates].map(d => new Date(d)).sort((a, b) => b - a);
+                const recency = Math.floor((endDate - sortedDates[0]) / (1000 * 60 * 60 * 24));
+                return { hn, recency, frequency: dates.size };
+            });
+
+            if (customerRF.length < 4) return { loyal: [], atRisk: [], newCust: [], lost: [] };
+            
+            const [rQ1, rQ2, rQ3] = getQuartiles(customerRF.map(c => c.recency));
+            const [fQ1, fQ2, fQ3] = getQuartiles(customerRF.map(c => c.frequency));
+            const segments = { loyal: [], atRisk: [], newCust: [], lost: [] };
+
+            customerRF.forEach(cust => {
+                // RFM Logic
+                const rScore = cust.recency <= rQ1 ? 4 : cust.recency <= rQ2 ? 3 : cust.recency <= rQ3 ? 2 : 1;
+                const fScore = cust.frequency > fQ3 ? 4 : cust.frequency > fQ2 ? 3 : cust.frequency > fQ1 ? 2 : 1;
+                const point = { x: cust.recency, y: cust.frequency, hn: cust.hn };
+                
+                if (rScore >= 3 && fScore >= 3) segments.loyal.push(point);
+                else if (rScore <= 2 && fScore >= 3) segments.atRisk.push(point);
+                else if (rScore >= 3 && fScore <= 2) segments.newCust.push(point);
+                else segments.lost.push(point);
+            });
+            return segments;
+        }
+
+        function updateRecencyFrequencyPlot(segments) {
+            const chartId = 'recencyFrequencyPlot';
+            const ctx = document.getElementById(chartId)?.getContext('2d');
+            if (!segments.loyal.length && !segments.atRisk.length) { createEmptyChart(chartId, 'scatter', 'RFM Analysis'); return; }
+            
+            charts[chartId] = new Chart(ctx, {
+                type: 'scatter',
+                data: { 
+                    datasets: [
+                        { label: 'Loyal', data: segments.loyal, backgroundColor: '#10b981' },
+                        { label: 'At Risk', data: segments.atRisk, backgroundColor: '#f59e0b' },
+                        { label: 'New', data: segments.newCust, backgroundColor: '#3b82f6' },
+                        { label: 'Lost', data: segments.lost, backgroundColor: '#9ca3af' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    onClick: (e, active) => {
+                        if(active.length) {
+                             const p = charts[chartId].data.datasets[active[0].datasetIndex].data[active[0].index];
+                             showCustomerDetailsFromChart(p.hn);
+                        }
+                    },
+                    scales: {
+                        x: { title: {display:true, text:'วันที่ไม่ได้มาล่าสุด (วัน)'}, grid:{display:false} },
+                        y: { title: {display:true, text:'ความถี่ (ครั้ง)'} }
+                    },
+                    plugins: { tooltip: { callbacks: { label: c => `HN: ${c.raw.hn} (R:${c.raw.x}, F:${c.raw.y})` } } }
+                }
+            });
+        }
+        
+        function updateFrequencyDistributionChart() {
+            const chartId = 'frequencyDistributionChart';
+             const ctx = document.getElementById(chartId)?.getContext('2d');
+             const payingData = filteredData.filter(row => row['ยอดชำระ'] > 0);
+             if(!payingData.length) { createEmptyChart(chartId, 'bar', 'ความถี่'); return; }
+             
+             const hnVisits = payingData.reduce((acc, row) => {
+                if(row.HN && row['วันที่ขาย']) {
+                    if(!acc[row.HN]) acc[row.HN] = new Set();
+                    acc[row.HN].add(row['วันที่ขาย']);
+                }
+                return acc;
+             }, {});
+             const dist = Object.values(hnVisits).reduce((acc, dates) => {
+                 const c = dates.size;
+                 acc[c] = (acc[c]||0) + 1;
+                 return acc;
+             }, {});
+             const labels = Object.keys(dist).map(Number).sort((a,b)=>a-b);
+             
+             charts[chartId] = new Chart(ctx, {
+                 type: 'bar',
+                 data: {
+                     labels: labels.map(f => `${f} ครั้ง`),
+                     datasets: [{ label: 'จำนวนลูกค้า', data: labels.map(f => dist[f]), backgroundColor: '#8b5cf6', borderRadius: 4 }]
+                 },
+                 options: { responsive: true, maintainAspectRatio: false, scales: { x: {grid:{display:false}}, y: {grid:{display:false}} } }
+             });
+        }
+
+        function updatePerformanceMatrixChart() {
+             const chartId = 'performanceMatrixChart';
+             const ctx = document.getElementById(chartId)?.getContext('2d');
+             const payingData = filteredData.filter(row => row['ยอดชำระ'] > 0);
+             if(!payingData.length) { createEmptyChart(chartId, 'scatter', 'Performance'); return; }
+             
+             const itemPerf = payingData.reduce((acc, row) => {
+                 const n = row['รายการ'];
+                 if(n) {
+                     if(!acc[n]) acc[n] = { rev:0, qty:0 };
+                     acc[n].rev += row['ยอดชำระ'];
+                     acc[n].qty++;
+                 }
+                 return acc;
+             }, {});
+             
+             const data = Object.entries(itemPerf).sort(([,a],[,b])=>b.rev-a.rev).slice(0,10).map(([n, d]) => ({
+                 label: n, x: d.qty, y: d.rev/d.qty
+             }));
+             
+             charts[chartId] = new Chart(ctx, {
+                 type: 'scatter',
+                 data: {
+                     datasets: [{ label: 'Top Items', data: data, backgroundColor: '#ec4899', pointRadius: 8, pointHoverRadius: 12 }]
+                 },
+                 options: {
+                     responsive: true, maintainAspectRatio: false,
+                     plugins: {
+                         tooltip: { callbacks: { label: c => `${c.raw.label}: ${c.raw.y.toLocaleString()} บ. (${c.raw.x} ครั้ง)` } }
+                     },
+                     scales: {
+                         x: { title: {display:true, text:'จำนวนขาย (ครั้ง)'} },
+                         y: { title: {display:true, text:'ราคาเฉลี่ยต่อบิล (บาท)'} }
+                     }
+                 }
+             });
+        }
+
+        function updateRFMInsights(segments) {
+             const container = document.getElementById('rfmInsightsContainer');
+             const { loyal, atRisk, newCust, lost } = segments;
+             const total = loyal.length + atRisk.length + newCust.length + lost.length;
+             
+             if(total === 0) { container.innerHTML = '<div class="no-data">ไม่มีข้อมูลเพียงพอ</div>'; return; }
+             
+             const groups = [
+                 { key: 'loyal', name: 'Loyal (ลูกค้าประจำ)', color: '#10b981', icon: 'fa-star', count: loyal.length, desc: 'กลุ่มรายได้หลัก รักษาไว้ให้ดีที่สุด', act: 'ให้สิทธิพิเศษ VIP, สะสมแต้ม' },
+                 { key: 'atRisk', name: 'At Risk (เสี่ยงหลุด)', color: '#f59e0b', icon: 'fa-triangle-exclamation', count: atRisk.length, desc: 'เคยมาบ่อยแต่เริ่มหายไป', act: 'โทรติดตาม, ส่งโปรโมชั่นเฉพาะบุคคล' },
+                 { key: 'newCust', name: 'New (ลูกค้าใหม่)', color: '#3b82f6', icon: 'fa-seedling', count: newCust.length, desc: 'เพิ่งมาใช้บริการ มีศักยภาพ', act: 'แนะนำบริการต่อเนื่อง, ให้คูปองครั้งถัดไป' },
+                 { key: 'lost', name: 'Lost (ขาดการติดต่อ)', color: '#9ca3af', icon: 'fa-user-slash', count: lost.length, desc: 'หายไปนานมาก', act: 'แคมเปญดึงกลับครั้งสุดท้าย' }
+             ];
+             
+             container.innerHTML = `
+                <div class="insights-text">
+                    <p><i class="fa-solid fa-lightbulb"></i> <strong>บทวิเคราะห์เบื้องต้น:</strong> กลุ่มลูกค้าที่ใหญ่ที่สุดคือ <strong>${groups.sort((a,b)=>b.count-a.count)[0].name}</strong> ควรเน้นกลยุทธ์ที่เหมาะสมกับกลุ่มนี้เพื่อเพิ่มยอดขายสูงสุด</p>
+                </div>
+                <div class="stats-grid" style="margin-top:20px;">
+                    ${groups.map(g => `
+                        <div class="stat-card" onclick="showCustomersForSegment('${g.key}', '${g.name}')" style="cursor:pointer; border-left: 4px solid ${g.color};">
+                            <div style="color:${g.color}; font-size:1.5em; margin-bottom:10px;"><i class="fa-solid ${g.icon}"></i></div>
+                            <div class="stat-value" style="font-size:1.4em;">${g.count.toLocaleString()} <span style="font-size:0.5em; color:#9ca3af;">(${(g.count/total*100).toFixed(1)}%)</span></div>
+                            <div class="stat-label" style="color:${g.color}; font-weight:600;">${g.name}</div>
+                            <div style="font-size:0.85em; color:#6b7280; margin-top:5px;">${g.act}</div>
+                        </div>
+                    `).join('')}
+                </div>
+             `;
+        }
+
+        // --- Table Updates (Styling handled by CSS, Logic is standard) ---
+        function updateCategoryStatsTable() {
+            const tbody = document.getElementById('categoryStatsBody');
+            tbody.innerHTML = '';
+            const process = data => data.reduce((acc, row) => {
+                const cat = getCategoryForRow(row);
+                if(!cat) return acc;
+                if(!acc[cat]) acc[cat] = { rev:0, hn:new Set(), payHn:new Set(), visits:{} };
+                acc[cat].rev += (row['ยอดชำระ']||0);
+                if(row.HN) {
+                    acc[cat].hn.add(row.HN);
+                    if((row['ยอดชำระ']||0)>0) acc[cat].payHn.add(row.HN);
+                    if(row['วันที่ขาย']) (acc[cat].visits[row.HN] = acc[cat].visits[row.HN]||new Set()).add(row['วันที่ขาย']);
+                }
+                return acc;
+            }, {});
+            
+            const stats = process(filteredData);
+            const sorted = Object.keys(stats).map(k => ({ cat:k, ...stats[k] })).sort((a,b) => b.rev - a.rev);
+            
+            if(!sorted.length) { tbody.innerHTML = '<tr><td colspan="5" class="no-data">ไม่พบข้อมูล</td></tr>'; return; }
+            
+            sorted.forEach(s => {
+                const repeat = Object.values(s.visits).filter(d => d.size > 1).length;
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><span class="clickable-cell" onclick="showCustomersForCategory('${s.cat}')">${s.cat}</span></td>
+                    <td style="text-align:center;">${s.hn.size.toLocaleString()}</td>
+                    <td style="text-align:center;">${s.payHn.size.toLocaleString()}</td>
+                    <td style="text-align:right; font-weight:600; color:#10b981;">${s.rev.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+                    <td style="text-align:center;">${repeat.toLocaleString()}</td>
+                `;
+            });
+        }
+
+        function updatePerformanceMatrix() {
+             const tbody = document.getElementById('performanceMatrixBody');
+             const paying = filteredData.filter(r => r['ยอดชำระ'] > 0);
+             if(!paying.length) { tbody.innerHTML = '<tr><td colspan="6" class="no-data">ไม่มีข้อมูล</td></tr>'; return; }
+             
+             const items = paying.reduce((acc, r) => {
+                 const n = r['รายการ'];
+                 if(n) {
+                     if(!acc[n]) acc[n] = { rev:0, qty:0, hn:new Set() };
+                     acc[n].rev += r['ยอดชำระ'];
+                     acc[n].qty++;
+                     if(r.HN) acc[n].hn.add(r.HN);
+                 }
+                 return acc;
+             }, {});
+             
+             const sorted = Object.entries(items).map(([n, d]) => ({ name:n, ...d, avg: d.rev/d.qty })).sort((a,b)=>b.rev-a.rev).slice(0,10);
+             
+             tbody.innerHTML = sorted.map((item, i) => `
+                <tr>
+                    <td style="text-align:center;"><span style="display:inline-block; width:24px; height:24px; background:${i<3?'#fcd34d':'#e5e7eb'}; border-radius:50%; text-align:center; line-height:24px; font-weight:bold; font-size:0.8em; color:${i<3?'#92400e':'#6b7280'}">${i+1}</span></td>
+                    <td>${item.name}</td>
+                    <td style="text-align:right; font-weight:600; color:#3b82f6;">${item.rev.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+                    <td style="text-align:center;">${item.qty.toLocaleString()}</td>
+                    <td style="text-align:right;">${item.avg.toLocaleString('th-TH',{minimumFractionDigits:0})}</td>
+                    <td style="text-align:center;">${item.hn.size.toLocaleString()}</td>
+                </tr>
+             `).join('');
+        }
+
+        function updateAllCustomersTable() {
+             const tbody = document.getElementById('allCustomersBody');
+             const hnData = filteredData.reduce((acc, row) => {
+                 if(!row.HN) return acc;
+                 if(!acc[row.HN]) acc[row.HN] = { name: row['ชื่อ-สกุล']||'-', phone: row['เบอร์โทร']||'-', visits:0, dates:new Set(), rev:0, items:new Set() };
+                 acc[row.HN].visits++;
+                 acc[row.HN].dates.add(row['วันที่ขาย']);
+                 acc[row.HN].rev += (row['ยอดชำระ']||0);
+                 if(row['รายการ']) acc[row.HN].items.add(row['รายการ']);
+                 return acc;
+             }, {});
+             
+             const list = Object.entries(hnData).map(([hn, d]) => {
+                 const sortedDates = [...d.dates].map(x=>({s:x, d:parseThaiDate(x)})).sort((a,b)=>a.d-b.d);
+                 return { hn, ...d, last: sortedDates.length ? sortedDates[sortedDates.length-1].s : '-', lastD: sortedDates.length ? sortedDates[sortedDates.length-1].d : new Date(0) };
+             }).sort((a,b)=>b.lastD - a.lastD); // Sort by recent visit
+             
+             if(!list.length) { tbody.innerHTML = '<tr><td colspan="7" class="no-data">ไม่พบข้อมูล</td></tr>'; return; }
+             
+             // Limit to first 100 to prevent browser lag if too many rows
+             const displayList = list.slice(0, 100); 
+             
+             tbody.innerHTML = displayList.map(c => `
+                <tr>
+                    <td><span class="clickable-cell" onclick="showCustomerDetailsFromChart('${c.hn}')">${c.hn}</span></td>
+                    <td>${c.name}</td>
+                    <td>${c.phone}</td>
+                    <td style="text-align:center;">${c.dates.size}</td>
+                    <td style="text-align:right;">${c.rev.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+                    <td style="font-size:0.85em; color:#6b7280;">${[...c.items].slice(-1)[0] || '-'}</td>
+                    <td>${c.last}</td>
+                </tr>
+             `).join('');
+             
+             if(list.length > 100) tbody.innerHTML += `<tr><td colspan="7" style="text-align:center; color:#9ca3af; padding:10px;">...แสดง 100 รายการล่าสุดจาก ${list.length.toLocaleString()} รายการ...</td></tr>`;
+        }
+        
+        function updateTransactionHistoryTable() {
+            const tbody = document.getElementById('transactionHistoryBody');
+            const sorted = [...filteredData].sort((a,b) => (parseThaiDate(b['วันที่ขาย'])||0) - (parseThaiDate(a['วันที่ขาย'])||0)).slice(0, 100);
+            
+            if(!sorted.length) { tbody.innerHTML = '<tr><td colspan="6" class="no-data">ไม่พบข้อมูล</td></tr>'; return; }
+            
+            tbody.innerHTML = sorted.map((r, i) => `
+                <tr>
+                    <td style="text-align:center;">${i+1}</td>
+                    <td>${r['วันที่ขาย']||'-'}</td>
+                    <td>${r.HN||'-'}</td>
+                    <td>${r['ชื่อ-สกุล']||'-'}</td>
+                    <td>${r['รายการ']||'-'}</td>
+                    <td style="text-align:right;">${(r['ยอดชำระ']||0).toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+                </tr>
+            `).join('');
+        }
+        
+        function updateRepeatCustomersTable() {
+             const tbody = document.getElementById('repeatCustomersBody');
+             const hnData = filteredData.reduce((acc, row) => {
+                 if(!row.HN) return acc;
+                 if(!acc[row.HN]) acc[row.HN] = { name: row['ชื่อ-สกุล'], phone: row['เบอร์โทร'], dates:new Set(), rev:0, items:new Set() };
+                 acc[row.HN].dates.add(row['วันที่ขาย']);
+                 acc[row.HN].rev += (row['ยอดชำระ']||0);
+                 if(row['รายการ']) acc[row.HN].items.add(row['รายการ']);
+                 return acc;
+             }, {});
+             
+             const list = Object.entries(hnData).filter(([,d]) => d.dates.size > 1).map(([hn,d]) => {
+                  const sorted = [...d.dates].sort((a,b)=>parseThaiDate(b)-parseThaiDate(a));
+                  return { hn, ...d, last: sorted[0], count: d.dates.size };
+             }).sort((a,b)=>b.rev-a.rev).slice(0, 50);
+
+             if(!list.length) { tbody.innerHTML = '<tr><td colspan="8" class="no-data">ไม่มีข้อมูลลูกค้าซ้ำ</td></tr>'; return; }
+             
+             tbody.innerHTML = list.map(c => `
+                <tr>
+                    <td>${c.hn}</td>
+                    <td>${c.name}</td>
+                    <td>${c.phone}</td>
+                    <td style="text-align:center;">${c.count}</td>
+                    <td style="text-align:center;">${c.dates.size}</td>
+                    <td style="text-align:right;">${c.rev.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+                    <td style="font-size:0.85em; color:#6b7280; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${[...c.items].join(', ')}</td>
+                    <td>${c.last}</td>
+                </tr>
+             `).join('');
+        }
+
+        function updateTopSpendersTable() {
+            const tbody = document.getElementById('topSpendersBody');
+            const paying = filteredData.filter(r => (r['ยอดชำระ']||0)>0);
+            const hnData = paying.reduce((acc, r) => {
+                if(!r.HN) return acc;
+                if(!acc[r.HN]) acc[r.HN] = { name:r['ชื่อ-สกุล'], phone:r['เบอร์โทร'], rev:0, items:new Set() };
+                acc[r.HN].rev += r['ยอดชำระ'];
+                if(r['รายการ']) acc[r.HN].items.add(r['รายการ']);
+                return acc;
+            }, {});
+            
+            const list = Object.entries(hnData).map(([hn,d]) => ({hn,...d})).sort((a,b)=>b.rev-a.rev).slice(0, 20);
+            
+            if(!list.length) { tbody.innerHTML = '<tr><td colspan="6" class="no-data">ไม่มีข้อมูล</td></tr>'; return; }
+            
+            tbody.innerHTML = list.map((c, i) => `
+                <tr>
+                    <td style="text-align:center;"><i class="fa-solid fa-crown" style="color:${i===0?'#fbbf24':i===1?'#94a3b8':'#b45309'}; display:${i<3?'inline':'none'}"></i> ${i+1}</td>
+                    <td>${c.hn}</td>
+                    <td>${c.name}</td>
+                    <td>${c.phone}</td>
+                    <td style="font-size:0.85em; color:#6b7280; max-width:250px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${[...c.items].join(', ')}</td>
+                    <td style="text-align:right; font-weight:600; color:#ec4899;">${c.rev.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+                </tr>
+            `).join('');
+        }
+
+        // --- Utils ---
+        function formatPercentageChange(cur, prev) {
+            if (prev === 0 || prev == null) return cur > 0 ? `<span class="comparison neutral">New</span>` : `<span class="comparison neutral">-</span>`;
+            const change = ((cur - prev) / prev) * 100;
+            const cls = change > 0 ? 'positive' : change < 0 ? 'negative' : 'neutral';
+            const icon = change > 0 ? 'fa-arrow-up' : change < 0 ? 'fa-arrow-down' : 'fa-minus';
+            return `<span class="comparison ${cls}"><i class="fa-solid ${icon}" style="font-size:0.8em;"></i> ${Math.abs(change).toFixed(1)}%</span>`;
+        }
+        
+        // --- Modal Details Logic (Slightly adjusted for new HTML structure) ---
+        function showCustomerDetailsFromChart(hn) {
+            const modal = document.getElementById('customerModal');
+            const title = document.getElementById('modalTitle');
+            const body = document.getElementById('modalBody');
+            
+            const trans = filteredData.filter(r => r.HN === hn);
+            if(!trans.length) return;
+            
+            const c = { name: trans[0]['ชื่อ-สกุล']||'-', phone: trans[0]['เบอร์โทร']||'-', rev:0, items:new Set(), dates:new Set() };
+            trans.forEach(r => { c.rev += (r['ยอดชำระ']||0); if(r['รายการ']) c.items.add(r['รายการ']); if(r['วันที่ขาย']) c.dates.add(r['วันที่ขาย']); });
+            
+            title.textContent = `👤 ข้อมูลลูกค้า: ${c.name}`;
+            body.innerHTML = `
+                <div style="background:#f9fafb; padding:20px; border-radius:12px; margin-bottom:20px; display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                    <div><strong>HN:</strong> ${hn}</div>
+                    <div><strong>เบอร์โทร:</strong> ${c.phone}</div>
+                    <div><strong>ยอดรวม:</strong> <span style="color:#10b981; font-weight:bold;">${c.rev.toLocaleString()} ฿</span></div>
+                    <div><strong>จำนวนครั้ง:</strong> ${c.dates.size}</div>
+                </div>
+                <h4 style="margin-bottom:10px;">ประวัติการใช้บริการ</h4>
+                <div style="max-height:300px; overflow-y:auto;">
+                    <table>
+                        <thead><tr><th>วันที่</th><th>รายการ</th><th>ยอดเงิน</th></tr></thead>
+                        <tbody>
+                            ${trans.sort((a,b)=>(parseThaiDate(b['วันที่ขาย'])||0)-(parseThaiDate(a['วันที่ขาย'])||0)).map(r => `
+                                <tr>
+                                    <td>${r['วันที่ขาย']}</td>
+                                    <td>${r['รายการ']}</td>
+                                    <td style="text-align:right;">${(r['ยอดชำระ']||0).toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            openModal('customerModal');
+        }
+        
+        function showCustomersForSegment(key, name) {
+            if (!rfmSegmentData[key]) return;
+            const hns = rfmSegmentData[key].map(p=>p.hn);
+            const list = hns.map(hn => {
+                 const rows = filteredData.filter(r=>r.HN===hn);
+                 if(!rows.length) return null;
+                 let rev=0; rows.forEach(r=>rev+=(r['ยอดชำระ']||0));
+                 return { hn, name: rows[0]['ชื่อ-สกุล'], phone: rows[0]['เบอร์โทร'], rev };
+            }).filter(Boolean).sort((a,b)=>b.rev-a.rev);
+            
+            document.getElementById('modalTitle').textContent = `📂 กลุ่มลูกค้า: ${name} (${list.length} คน)`;
+            document.getElementById('modalBody').innerHTML = `
+                <div style="overflow-y:auto; max-height:600px;">
+                    <table>
+                        <thead><tr><th>HN</th><th>ชื่อ-สกุล</th><th>เบอร์โทร</th><th>ยอดรวมสะสม</th></tr></thead>
+                        <tbody>
+                            ${list.map(c => `<tr><td>${c.hn}</td><td>${c.name}</td><td>${c.phone}</td><td style="text-align:right;">${c.rev.toLocaleString()}</td></tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            openModal('customerModal');
+        }
+
+        function showCustomersForCategory(cat) {
+            currentModalCustomers = filteredData.filter(row => getCategoryForRow(row) === cat).reduce((acc, row) => {
+                if(!row.HN) return acc;
+                if(!acc[row.HN]) acc[row.HN] = { hn:row.HN, name:row['ชื่อ-สกุล'], phone:row['เบอร์โทร'], rev:0, items:new Set(), dates:new Set(), lastD: new Date(0) };
+                acc[row.HN].rev += (row['ยอดชำระ']||0);
+                if(row['รายการ']) acc[row.HN].items.add(row['รายการ']);
+                const d = parseThaiDate(row['วันที่ขาย']);
+                if(d) { acc[row.HN].dates.add(row['วันที่ขาย']); if(d > acc[row.HN].lastD) acc[row.HN].lastD = d; }
+                return acc;
+            }, {});
+            
+            document.getElementById('modalTitle').textContent = `📂 หมวดหมู่: ${cat}`;
+            sortAndRenderModal('desc');
+            openModal('customerModal');
+        }
+        
+        function sortAndRenderModal(order, filterRepeat=false) {
+            let arr = Object.values(currentModalCustomers);
+            if(filterRepeat) arr = arr.filter(c => c.dates.size > 1);
+            arr.sort((a,b) => order === 'desc' ? b.lastD - a.lastD : a.lastD - b.lastD);
+            
+            const controls = `
+                <div class="modal-controls">
+                    <button class="control-btn" onclick="sortAndRenderModal('desc', ${filterRepeat})" style="font-size:0.8em;"><i class="fa-solid fa-arrow-down-short-wide"></i> ล่าสุดก่อน</button>
+                    <button class="control-btn" onclick="sortAndRenderModal('asc', ${filterRepeat})" style="font-size:0.8em;"><i class="fa-solid fa-arrow-up-wide-short"></i> เก่าสุดก่อน</button>
+                    <div class="checkbox-wrapper" onclick="toggleRepeatFilter(this, '${order}')">
+                        <input type="checkbox" ${filterRepeat?'checked':''}> <span>เฉพาะลูกค้าเก่า (Repeat)</span>
+                    </div>
+                </div>
+            `;
+            
+            const tbl = `
+                <div style="overflow-y:auto; max-height:500px;">
+                    <table>
+                        <thead><tr><th>HN</th><th>ชื่อ</th><th>เบอร์</th><th>ครั้ง</th><th>ยอดรวม</th><th>ล่าสุด</th></tr></thead>
+                        <tbody>
+                            ${arr.map(c => `
+                                <tr>
+                                    <td>${c.hn}</td><td>${c.name}</td><td>${c.phone}</td>
+                                    <td style="text-align:center;">${c.dates.size}</td>
+                                    <td style="text-align:right;">${c.rev.toLocaleString()}</td>
+                                    <td>${c.lastD.getTime()?c.lastD.toLocaleDateString('th-TH'):'-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            document.getElementById('modalBody').innerHTML = controls + tbl;
+        }
+
+        function toggleRepeatFilter(div, order) {
+            const cb = div.querySelector('input');
+            cb.checked = !cb.checked;
+            sortAndRenderModal(order, cb.checked);
+        }
+
+        // --- AI Summary (Same Logic) ---
+        function generateAISummary() {
+             const summaryModal = document.getElementById('aiSummaryModal');
+             const summaryText = document.getElementById('aiSummaryText');
+             summaryText.value = createAIPrompt();
+             openModal('aiSummaryModal');
+             summaryText.select();
+        }
+
+        function createAIPrompt() {
+            // (Use the exact same logic as your previous code for generating prompt text)
+            // For brevity in this response, I'm calling the logic implied.
+            // ... Re-insert the calculateAllStats and Prompt generation logic here ...
+             const calculateAllStats = (data) => {
+                if (!data || data.length === 0) return null;
+                const totalRevenue = data.reduce((sum, r) => sum + (r['ยอดชำระ'] || 0), 0);
+                const uniqueCustomers = new Set(data.map(r => r.HN).filter(hn => hn)).size;
+                const payingData = data.filter(r => r['ยอดชำระ'] > 0);
+                const uniquePayingCustomers = new Set(payingData.map(r => r.HN).filter(hn => hn)).size;
+                const hnVisits = data.reduce((acc, r) => {
+                    if (r.HN && r['วันที่ขาย']) { (acc[r.HN] = acc[r.HN] || new Set()).add(r['วันที่ขาย']); }
+                    return acc;
+                }, {});
+                const repeatCustomersCount = Object.values(hnVisits).filter(dates => dates.size > 1).length;
+                const repeatRate = uniqueCustomers > 0 ? ((repeatCustomersCount / uniqueCustomers) * 100) : 0;
+                const avgRevenuePerCustomer = uniquePayingCustomers > 0 ? (totalRevenue / uniquePayingCustomers) : 0;
+                const categoryRevenue = payingData.reduce((acc, r) => {
+                    const cat = getCategoryForRow(r);
+                    if (cat) acc[cat] = (acc[cat] || 0) + r['ยอดชำระ'];
+                    return acc;
+                }, {});
+                const topCategories = Object.entries(categoryRevenue).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                const allCategories = Object.entries(categoryRevenue);
+                return { totalRevenue, uniqueCustomers, repeatCustomersCount, repeatRate, avgRevenuePerCustomer, topCategories, allCategories };
+            };
+            const formatPctChange = (c, p) => (p===0||!p) ? "(New)" : `(${(c-p)/p*100 > 0 ? '+' : ''}${((c-p)/p*100).toFixed(1)}%)`;
+            
+            const cur = calculateAllStats(filteredData);
+            const prev = compareToggleElement.checked ? calculateAllStats(compareFilteredData) : null;
+            if(!cur) return "ไม่มีข้อมูล";
+            
+            let txt = `สรุปยอดขาย (${startDateElement.value} - ${endDateElement.value})\n`;
+            txt += `- ยอดขายรวม: ${cur.totalRevenue.toLocaleString()} บาท\n`;
+            txt += `- ลูกค้า: ${cur.uniqueCustomers.toLocaleString()} คน (ซื้อซ้ำ ${cur.repeatRate.toFixed(1)}%)\n`;
+            txt += `- Top 5 หมวดหมู่:\n${cur.topCategories.map(c=>`  * ${c[0]}: ${c[1].toLocaleString()} บาท`).join('\n')}`;
+            
+            if(prev) {
+                txt += `\n\nเปรียบเทียบกับช่วงก่อนหน้า:\n`;
+                txt += `- ยอดขาย: ${cur.totalRevenue.toLocaleString()} vs ${prev.totalRevenue.toLocaleString()} ${formatPctChange(cur.totalRevenue, prev.totalRevenue)}\n`;
+            }
+            return txt;
+        }
+        
+        function copyAIPrompt(btn) {
+            const txt = document.getElementById('aiSummaryText');
+            txt.select();
+            navigator.clipboard.writeText(txt.value).then(() => {
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว';
+                btn.style.background = '#10b981';
+                setTimeout(() => { 
+                    btn.innerHTML = originalHTML; 
+                    btn.style.background = ''; // reset
+                }, 2000);
+            });
+        }
+        
+        window.onclick = (e) => { if(e.target.classList.contains('modal')) closeModal(e.target.id); }
+
+    </script>
+</body>
+</html>
