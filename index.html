@@ -785,6 +785,13 @@
             // Custom Categorization Logic
             // Modified: Exclude 'โทรตาม' and 'botox' from Surgery category to prevent misclassification (e.g. Botoxหางตา)
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
+            if (name.includes('ultraformer') || name.includes('ultra fromer')) return 'Ultraformer';
+            
+            // New Categories
+            if (name.includes('co2')) return 'Co2';
+            if (name.includes('slimnow') || name.includes('peptide') || name.includes('คุมหิว') || name.includes('g5') || name.includes('rf หน้าท้อง')) return 'Slimnow';
+            if (name.includes('dio')) return 'Diode laser';
+
             if (name.includes('botox') || name.includes('โบ')) return 'Botox';
             if (name.includes('filler') || name.includes('ฟิลเลอร์')) return 'Filler';
             if (name.includes('hifu') || name.includes('ulthera') || name.includes('lifting')) return 'HIFU / Lifting';
@@ -794,6 +801,12 @@
             if (name.includes('drip') || name.includes('vitamin') || name.includes('วิตามิน')) return 'Vitamin Drip';
             if (name.includes('fat') || name.includes('สลายไขมัน')) return 'Body / Fat';
             if (name.includes('acne') || name.includes('สิว')) return 'Acne Treatment';
+            // New Categories
+            if (name.includes('ยา') || name.includes('medicine') || name.includes('drug') || name.includes('pharmacy') || name.includes('เวชภัณฑ์')) return 'Pharmacy / Medicine';
+            if (name.includes('treatment') || name.includes('ทรีทเมนท์') || name.includes('นวด') || name.includes('spa')) return 'Treatment';
+            if (name.includes('ค่าแพทย์') || name.includes('df') || name.includes('doctor') || name.includes('consult') || name.includes('บริการ') || name.includes('service')) return 'Consultation / Service';
+            if (name.includes('product') || name.includes('cream') || name.includes('gel') || name.includes('foam') || name.includes('sunscreen') || name.includes('set')) return 'Products / Skincare';
+            
             return 'General / Others';
         }
 
@@ -1047,9 +1060,10 @@
              const items = filteredData.reduce((acc, r) => {
                  if(r['ยอดชำระ'] > 0 && r['รายการ']) {
                      const n = r['รายการ'];
-                     if(!acc[n]) acc[n] = { rev:0, qty:0 };
+                     if(!acc[n]) acc[n] = { rev:0, qty:0, customers: new Set() }; // Changed to track customers
                      acc[n].rev += r['ยอดชำระ'];
                      acc[n].qty++;
+                     if(r.HN) acc[n].customers.add(r.HN); // Track HN
                  }
                  return acc;
              }, {});
@@ -1086,9 +1100,9 @@
                         <td style="text-align:center">${i+1}</td>
                         <td>${k}</td>
                         <td style="text-align:right">${v.rev.toLocaleString()}</td>
-                        <td style="text-align:center">${v.qty}</td>
+                        <td style="text-align:center">${v.qty.toLocaleString()}</td>
                         <td style="text-align:right">${(v.rev/v.qty).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
-                        <td style="text-align:center">-</td>
+                        <td style="text-align:center">${v.customers.size.toLocaleString()}</td>
                     </tr>
                  `).join('');
              }
@@ -1280,7 +1294,8 @@
         function showCustomersForCategory(cat) {
             const hns = new Set();
             filteredData.forEach(r => { if(getCategoryForRow(r)===cat && r.HN) hns.add(r.HN); });
-            renderCustomerListModal(`หมวดหมู่: ${cat}`, [...hns]);
+            // Modified to pass the category filter
+            renderCustomerListModal(`หมวดหมู่: ${cat}`, [...hns], cat);
         }
         
         function showSegmentDetails(key, name) {
@@ -1288,27 +1303,43 @@
             renderCustomerListModal(`กลุ่มลูกค้า: ${name}`, rfmSegmentData[key].map(x=>x.hn));
         }
         
-        function renderCustomerListModal(title, hnList) {
+        function renderCustomerListModal(title, hnList, filterCat = null) {
             document.getElementById('modalTitle').textContent = `📂 ${title} (${hnList.length} คน)`;
             
             // Aggregate data for list
             const list = hnList.map(hn => {
-                const rows = filteredData.filter(r=>r.HN===hn);
-                const rev = rows.reduce((s,r)=>s+(r['ยอดชำระ']||0),0);
-                return { hn, name: rows[0]['ชื่อ-สกุล'], phone: rows[0]['เบอร์โทร'], rev };
-            }).sort((a,b)=>b.rev - a.rev).slice(0, 200); // Limit display
+                let rows = filteredData.filter(r => r.HN === hn);
+                
+                // If filtering by category (for "Sales by Category" popup)
+                if(filterCat) {
+                    rows = rows.filter(r => getCategoryForRow(r) === filterCat);
+                }
+
+                if (rows.length === 0) return null;
+
+                const rev = rows.reduce((s,r) => s + (r['ยอดชำระ']||0), 0);
+                
+                // Extract items for this customer in this context
+                const itemsSet = new Set();
+                rows.forEach(r => { if(r['รายการ']) itemsSet.add(r['รายการ']); });
+                const itemsStr = Array.from(itemsSet).join(', ');
+
+                return { hn, name: rows[0]['ชื่อ-สกุล'], phone: rows[0]['เบอร์โทร'], rev, items: itemsStr };
+            }).filter(item => item !== null)
+              .sort((a,b) => b.rev - a.rev)
+              .slice(0, 200); // Limit display
             
             document.getElementById('modalBody').innerHTML = `
                 <div style="max-height:500px; overflow-y:auto;">
                     <table>
-                        <thead><tr><th>HN</th><th>ชื่อ</th><th>เบอร์</th><th>ยอดสะสม</th></tr></thead>
+                        <thead><tr><th>HN</th><th>ชื่อ</th><th>รายการที่ซื้อ</th><th>ยอด (บาท)</th></tr></thead>
                         <tbody>
                             ${list.map(c => `
                                 <tr>
                                     <td><span class="clickable" onclick="showCustomerDetail('${c.hn}')">${c.hn}</span></td>
-                                    <td>${c.name}</td>
-                                    <td>${c.phone}</td>
-                                    <td style="text-align:right">${c.rev.toLocaleString()}</td>
+                                    <td>${c.name}<br><small style="color:#999">${c.phone}</small></td>
+                                    <td style="font-size:0.9em; color:#555;">${c.items}</td>
+                                    <td style="text-align:right; font-weight:bold;">${c.rev.toLocaleString()}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
