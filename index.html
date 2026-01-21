@@ -170,6 +170,18 @@
             transform: translateY(-2px); 
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); 
         }
+        
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 0.8em;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: var(--primary-color);
+            border: 1px solid #e0e7ff;
+        }
+        .btn-sm:hover {
+            background: #e0e7ff;
+        }
 
         button:disabled { 
             background: #e5e7eb; 
@@ -448,9 +460,15 @@
                         <div class="stat-label">ลูกค้าทั้งหมด (คน)</div>
                     </div>
                     <div class="stat-card">
+                        <div class="stat-value" id="newCustomers" style="color:var(--primary-color)">-</div>
+                        <div class="stat-label">ลูกค้าใหม่ (ลงทะเบียน)</div>
+                    </div>
+                    <!-- ADDED PAYING CUSTOMERS CARD -->
+                    <div class="stat-card">
                         <div class="stat-value" id="payingCustomers">-</div>
                         <div class="stat-label">ลูกค้าที่มียอดชำระ (คน)</div>
                     </div>
+                    <!-- END ADDED CARD -->
                     <div class="stat-card">
                         <div class="stat-value" id="repeatRate">-</div>
                         <div class="stat-label">อัตราลูกค้าเดิม (Repeat Rate)</div>
@@ -484,7 +502,12 @@
                         <canvas id="performanceMatrixChart"></canvas>
                     </div>
                      <div class="chart-box">
-                        <h3>🔄 ความถี่การใช้บริการ</h3>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <h3 style="margin:0;">🔄 ความถี่การใช้บริการ</h3>
+                            <button class="btn-sm" onclick="exportFrequencyData()">
+                                <i class="fa-solid fa-list-ol"></i> สรุปข้อมูล
+                            </button>
+                        </div>
                         <canvas id="frequencyDistributionChart"></canvas>
                     </div>
                 </div>
@@ -553,18 +576,6 @@
                         <table>
                             <thead><tr><th>HN</th><th>ชื่อ-สกุล</th><th>เบอร์โทร</th><th>ครั้ง</th><th>วัน</th><th>ยอดรวม</th><th>ล่าสุด</th></tr></thead>
                             <tbody id="repeatCustomersBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="table-wrapper">
-                    <div class="table-header">
-                        <h3>📝 ประวัติรายการขายทั้งหมด (100 รายการล่าสุด)</h3>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead><tr><th>ลำดับ</th><th>วันที่</th><th>HN</th><th>ชื่อ-สกุล</th><th>รายการ</th><th>ยอดชำระ</th></tr></thead>
-                            <tbody id="transactionHistoryBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -695,7 +706,15 @@
                     // Clean phone
                     let phone = row['เบอร์โทร'] || row['โทรศัพท์'] || row['Phone'] || row['Tel'] || '-';
                     
-                    return { ...row, 'ยอดชำระ': amt, 'เบอร์โทร': String(phone) };
+                    // Normalize Reg Date Key (Try common names)
+                    let regDateStr = row['วันลงทะเบียน'] || row['Register Date'] || row['RegDate'] || null;
+
+                    return { 
+                        ...row, 
+                        'ยอดชำระ': amt, 
+                        'เบอร์โทร': String(phone),
+                        '__regDate': regDateStr ? parseThaiDate(regDateStr) : null // Pre-parse reg date
+                    };
                 }).filter(r => r !== null);
 
                 // Auto-set Date Range from data
@@ -756,11 +775,18 @@
         function parseThaiDate(str) {
             if (!str || typeof str !== 'string') return null;
             try {
-                const parts = str.trim().split('/');
+                const parts = str.trim().split(/[\/\-]/); // Split by / or -
                 if (parts.length !== 3) return null;
+                // Assuming DD/MM/YYYY
                 let d = parseInt(parts[0]), m = parseInt(parts[1]) - 1, y = parseInt(parts[2]);
                 if (y > 2500) y -= 543; // Convert Thai Year
-                return new Date(y, m, d);
+                
+                // Safety check for valid date
+                const dateObj = new Date(y, m, d);
+                if (dateObj.getFullYear() === y && dateObj.getMonth() === m && dateObj.getDate() === d) {
+                    return dateObj;
+                }
+                return null;
             } catch (e) { return null; }
         }
 
@@ -783,7 +809,6 @@
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ';
             // Custom Categorization Logic
-            // Modified: Exclude 'โทรตาม' and 'botox' from Surgery category to prevent misclassification (e.g. Botoxหางตา)
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
             if (name.includes('ultraformer') || name.includes('ultra fromer')) return 'Ultraformer';
             
@@ -825,13 +850,16 @@
             updatePerformanceMatrix();
             updateRepeatCustomersTable();
             updateTopSpendersTable();
-            updateTransactionHistoryTable();
+            // Removed Transaction History Table Update
         }
 
         // --- 7. STATS & COMPARISON ---
         function updateStats() {
-            const calc = (data) => {
-                if (!data.length) return { rev: 0, visit: 0, cust: 0, payCust: 0, repeat: 0, rate: 0 };
+            const start = parseInputDate(els.startDate.value);
+            const end = parseInputDate(els.endDate.value, true);
+
+            const calc = (data, isCompare = false) => {
+                if (!data.length) return { rev: 0, visit: 0, cust: 0, payCust: 0, repeat: 0, rate: 0, newReg: 0 };
                 const uniqueHN = new Set(data.map(r => r.HN).filter(x => x));
                 const payHN = new Set(data.filter(r => r['ยอดชำระ'] > 0).map(r => r.HN));
                 const rev = data.reduce((s, r) => s + (r['ยอดชำระ'] || 0), 0);
@@ -848,32 +876,65 @@
                 const repeatCount = Object.values(visits).filter(v => v.size > 1).length;
                 const rate = uniqueHN.size ? (repeatCount / uniqueHN.size) * 100 : 0;
                 
-                return { rev, visit: totalVisits, cust: uniqueHN.size, payCust: payHN.size, repeat: repeatCount, rate };
+                // NEW: Calculate New Customers based on Registration Date
+                // We must look at Unique HNs in the current filtered set, and check their reg date
+                let newRegCount = 0;
+                
+                // Note: uniqueHN contains HNs present in filtered sales data.
+                // We need to check if these HNs have a reg date within range.
+                // Since data is flattened, we find the first row with this HN to check reg date.
+                const checkedHN = new Set();
+                data.forEach(r => {
+                    if(r.HN && !checkedHN.has(r.HN)) {
+                        checkedHN.add(r.HN);
+                        if(r.__regDate) {
+                            // Check if reg date is within the current filter range
+                            // Use start/end from global state if not compare, or passed range if compare
+                            let rangeStart = start;
+                            let rangeEnd = end;
+                            
+                            if (isCompare) {
+                                rangeStart = parseInputDate(els.compareStart.value);
+                                rangeEnd = parseInputDate(els.compareEnd.value, true);
+                            }
+
+                            if (rangeStart && rangeEnd && r.__regDate >= rangeStart && r.__regDate <= rangeEnd) {
+                                newRegCount++;
+                            }
+                        }
+                    }
+                });
+
+                return { rev, visit: totalVisits, cust: uniqueHN.size, payCust: payHN.size, repeat: repeatCount, rate, newReg: newRegCount };
             };
 
-            const cur = calc(filteredData);
-            const prev = els.compareToggle.checked ? calc(compareFilteredData) : null;
+            const cur = calc(filteredData, false);
+            const prev = els.compareToggle.checked ? calc(compareFilteredData, true) : null;
 
             updateStatCard('totalRevenue', cur.rev, prev?.rev, true);
             updateStatCard('totalVisits', cur.visit, prev?.visit);
             updateStatCard('totalCustomers', cur.cust, prev?.cust);
-            updateStatCard('payingCustomers', cur.payCust, prev?.payCust);
+            updateStatCard('newCustomers', cur.newReg, prev?.newReg); // New Card Update
+            updateStatCard('payingCustomers', cur.payCust, prev?.payCust); // Kept in logic but hidden in HTML if not used
             updateStatCard('repeatRate', cur.rate, prev?.rate, false, true);
         }
 
         function updateStatCard(id, val, prevVal, isMoney = false, isPct = false) {
+            const el = document.getElementById(id);
+            if(!el) return;
+
             let txt = val.toLocaleString(undefined, { minimumFractionDigits: isMoney ? 2 : (isPct ? 1 : 0) });
             if (isPct) txt += '%';
             
             let badgeHtml = '';
             if (prevVal !== undefined && prevVal !== null) {
                 const diff = val - prevVal;
-                const pct = prevVal === 0 ? 100 : (diff / prevVal) * 100;
+                const pct = prevVal === 0 ? (val > 0 ? 100 : 0) : (diff / prevVal) * 100;
                 const cls = diff > 0 ? 'pos' : (diff < 0 ? 'neg' : 'neu');
                 const icon = diff > 0 ? 'up' : (diff < 0 ? 'down' : 'minus');
                 badgeHtml = `<span class="badge ${cls}"><i class="fa-solid fa-caret-${icon}"></i> ${Math.abs(pct).toFixed(1)}%</span>`;
             }
-            document.getElementById(id).innerHTML = `${txt} ${badgeHtml}`;
+            el.innerHTML = `${txt} ${badgeHtml}`;
         }
 
         // --- 8. CHARTS ---
@@ -968,12 +1029,16 @@
                 }
                 return acc;
              }, {});
-             const freqDist = Object.values(hnVisits).reduce((acc, dates) => {
+             
+             // Count distribution and store HNs
+             const freqMap = {}; // Key: Count, Value: Array of HNs
+             Object.entries(hnVisits).forEach(([hn, dates]) => {
                  const count = dates.size;
-                 acc[count] = (acc[count]||0) + 1;
-                 return acc;
-             }, {});
-             const freqLabels = Object.keys(freqDist).map(Number).sort((a,b)=>a-b);
+                 if(!freqMap[count]) freqMap[count] = [];
+                 freqMap[count].push(hn);
+             });
+
+             const freqLabels = Object.keys(freqMap).map(Number).sort((a,b)=>a-b);
              
              charts.freq = new Chart(document.getElementById('frequencyDistributionChart'), {
                  type: 'bar',
@@ -981,12 +1046,31 @@
                      labels: freqLabels.map(f => `${f} ครั้ง`),
                      datasets: [{
                          label: 'จำนวนลูกค้า (คน)',
-                         data: freqLabels.map(f => freqDist[f]),
+                         data: freqLabels.map(f => freqMap[f].length),
                          backgroundColor: '#8b5cf6',
                          borderRadius: 4
                      }]
                  },
-                 options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: {display:false} } } }
+                 options: { 
+                     responsive: true, 
+                     maintainAspectRatio: false, 
+                     scales: { x: { grid: {display:false} } },
+                     onClick: (e, active) => {
+                        if(active.length > 0) {
+                            const index = active[0].index;
+                            const freqCount = freqLabels[index];
+                            const hnList = freqMap[freqCount];
+                            renderCustomerListModal(`ลูกค้าที่มาใช้บริการ ${freqCount} ครั้ง`, hnList);
+                        }
+                     },
+                     plugins: {
+                         tooltip: {
+                             callbacks: {
+                                 footer: () => 'คลิกเพื่อดูรายชื่อลูกค้า'
+                             }
+                         }
+                     }
+                 }
              });
         }
         
@@ -1231,21 +1315,6 @@
             `).join('');
         }
 
-        function updateTransactionHistoryTable() {
-            const tbody = document.getElementById('transactionHistoryBody');
-            const list = [...filteredData].sort((a,b) => (parseThaiDate(b['วันที่ขาย'])||0) - (parseThaiDate(a['วันที่ขาย'])||0)).slice(0, 100);
-            tbody.innerHTML = list.map((r,i) => `
-                <tr>
-                    <td style="text-align:center">${i+1}</td>
-                    <td>${r['วันที่ขาย']}</td>
-                    <td>${r.HN}</td>
-                    <td>${r['ชื่อ-สกุล']}</td>
-                    <td>${r['รายการ']}</td>
-                    <td style="text-align:right">${(r['ยอดชำระ']||0).toLocaleString()}</td>
-                </tr>
-            `).join('');
-        }
-
         // --- 11. MODALS & AI ---
         function openModal(id) {
             const m = document.getElementById(id);
@@ -1271,6 +1340,7 @@
                     <div><strong>เบอร์โทร:</strong> ${info['เบอร์โทร']}</div>
                     <div><strong>ยอดสะสม:</strong> <span style="color:#10b981; font-weight:bold">${total.toLocaleString()} ฿</span></div>
                     <div><strong>จำนวนครั้ง:</strong> ${new Set(trans.map(r=>r['วันที่ขาย'])).size}</div>
+                    <div><strong>วันที่ลงทะเบียน:</strong> ${info.__regDate ? info.__regDate.toLocaleDateString('th-TH') : '-'}</div>
                 </div>
                 <h4>ประวัติการใช้บริการ</h4>
                 <div style="max-height:300px; overflow-y:auto; margin-top:10px;">
@@ -1319,20 +1389,30 @@
 
                 const rev = rows.reduce((s,r) => s + (r['ยอดชำระ']||0), 0);
                 
-                // Extract items for this customer in this context
+                // Find latest visit date
+                const dates = rows.map(r => parseThaiDate(r['วันที่ขาย'])).filter(d => d);
+                const lastVisit = dates.length ? new Date(Math.max.apply(null, dates)) : null;
+                const lastVisitStr = lastVisit ? lastVisit.toLocaleDateString('th-TH') : '-';
+
+                // Extract items
                 const itemsSet = new Set();
                 rows.forEach(r => { if(r['รายการ']) itemsSet.add(r['รายการ']); });
                 const itemsStr = Array.from(itemsSet).join(', ');
 
-                return { hn, name: rows[0]['ชื่อ-สกุล'], phone: rows[0]['เบอร์โทร'], rev, items: itemsStr };
+                return { hn, name: rows[0]['ชื่อ-สกุล'], phone: rows[0]['เบอร์โทร'], rev, items: itemsStr, lastVisit: lastVisitStr };
             }).filter(item => item !== null)
               .sort((a,b) => b.rev - a.rev)
               .slice(0, 200); // Limit display
             
+            // Generate Text for Copy
+            const copyHeader = "HN\tชื่อ-สกุล\tเบอร์โทร\tยอดซื้อรวม\tวันที่ล่าสุด\tรายการที่ซื้อ";
+            const copyRows = list.map(c => `${c.hn}\t${c.name}\t${c.phone}\t${c.rev}\t${c.lastVisit}\t${c.items}`).join('\n');
+            const fullCopyText = `${copyHeader}\n${copyRows}`;
+
             document.getElementById('modalBody').innerHTML = `
-                <div style="max-height:500px; overflow-y:auto;">
+                <div style="max-height:400px; overflow-y:auto;">
                     <table>
-                        <thead><tr><th>HN</th><th>ชื่อ</th><th>รายการที่ซื้อ</th><th>ยอด (บาท)</th></tr></thead>
+                        <thead><tr><th>HN</th><th>ชื่อ</th><th>รายการที่ซื้อ</th><th>ยอด (บาท)</th><th>ล่าสุด</th></tr></thead>
                         <tbody>
                             ${list.map(c => `
                                 <tr>
@@ -1340,13 +1420,67 @@
                                     <td>${c.name}<br><small style="color:#999">${c.phone}</small></td>
                                     <td style="font-size:0.9em; color:#555;">${c.items}</td>
                                     <td style="text-align:right; font-weight:bold;">${c.rev.toLocaleString()}</td>
+                                    <td style="font-size:0.9em;">${c.lastVisit}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
                 </div>
+                <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px;">
+                    <h5>📋 รายชื่อสำหรับ Copy (Excel/Google Sheets)</h5>
+                    <textarea id="modalCopyText" style="width:100%; height:100px; font-size:0.85em; color:#555; border:1px solid #ddd; border-radius:8px; padding:10px;" readonly>${fullCopyText}</textarea>
+                    <button class="btn-primary" style="margin-top:10px;" onclick="copyModalText(this)">
+                        <i class="fa-regular fa-copy"></i> คัดลอกรายชื่อ
+                    </button>
+                </div>
             `;
             openModal('customerModal');
+        }
+
+        function exportFrequencyData() {
+            // 1. Calculate
+            const hnVisits = filteredData.reduce((acc, row) => {
+               if(row.HN && row['วันที่ขาย']) {
+                   if(!acc[row.HN]) acc[row.HN] = new Set();
+                   acc[row.HN].add(row['วันที่ขาย']);
+               }
+               return acc;
+            }, {});
+            
+            const freqDist = {};
+            Object.values(hnVisits).forEach(dates => {
+                const count = dates.size;
+                freqDist[count] = (freqDist[count] || 0) + 1;
+            });
+
+            // 2. Format
+            const keys = Object.keys(freqDist).map(Number).sort((a,b)=>a-b);
+            let text = "จำนวนครั้งที่มา\tจำนวนลูกค้า(คน)\n";
+            keys.forEach(k => {
+                text += `${k}\t${freqDist[k]}\n`;
+            });
+
+            // 3. Render Modal (Reuse Customer Modal structure)
+            document.getElementById('modalTitle').textContent = `📊 สรุปความถี่การใช้บริการ`;
+            document.getElementById('modalBody').innerHTML = `
+                <div style="margin-top:20px;">
+                    <h5>📋 ข้อมูลสำหรับ Copy (Excel/Google Sheets)</h5>
+                    <textarea id="modalCopyText" style="width:100%; height:300px; font-size:0.9em; color:#555; border:1px solid #ddd; border-radius:8px; padding:10px;" readonly>${text}</textarea>
+                    <button class="btn-primary" style="margin-top:10px;" onclick="copyModalText(this)">
+                        <i class="fa-regular fa-copy"></i> คัดลอกข้อมูล
+                    </button>
+                </div>
+            `;
+            openModal('customerModal');
+        }
+
+        function copyModalText(btn) {
+            const t = document.getElementById('modalCopyText');
+            t.select();
+            navigator.clipboard.writeText(t.value);
+            const oldText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว';
+            setTimeout(() => btn.innerHTML = oldText, 2000);
         }
 
         function generateAISummary() {
