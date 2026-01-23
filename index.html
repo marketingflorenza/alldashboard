@@ -1376,8 +1376,8 @@
         function renderCustomerListModal(title, hnList, filterCat = null) {
             document.getElementById('modalTitle').textContent = `📂 ${title} (${hnList.length} คน)`;
             
-            // Aggregate data for list
-            const list = hnList.map(hn => {
+            // Aggregate data for list (Calculate ALL data first)
+            const fullList = hnList.map(hn => {
                 let rows = filteredData.filter(r => r.HN === hn);
                 
                 // If filtering by category (for "Sales by Category" popup)
@@ -1401,20 +1401,22 @@
 
                 return { hn, name: rows[0]['ชื่อ-สกุล'], phone: rows[0]['เบอร์โทร'], rev, items: itemsStr, lastVisit: lastVisitStr };
             }).filter(item => item !== null)
-              .sort((a,b) => b.rev - a.rev)
-              .slice(0, 200); // Limit display
+              .sort((a,b) => b.rev - a.rev);
             
-            // Generate Text for Copy
+            // 1. Generate Text for Copy (Using FULL List)
             const copyHeader = "HN\tชื่อ-สกุล\tเบอร์โทร\tยอดซื้อรวม\tวันที่ล่าสุด\tรายการที่ซื้อ";
-            const copyRows = list.map(c => `${c.hn}\t${c.name}\t${c.phone}\t${c.rev}\t${c.lastVisit}\t${c.items}`).join('\n');
+            const copyRows = fullList.map(c => `${c.hn}\t${c.name}\t${c.phone}\t${c.rev}\t${c.lastVisit}\t${c.items}`).join('\n');
             const fullCopyText = `${copyHeader}\n${copyRows}`;
+
+            // 2. Slice for Display (Limit to top 200 for UI performance)
+            const displayList = fullList.slice(0, 200);
 
             document.getElementById('modalBody').innerHTML = `
                 <div style="max-height:400px; overflow-y:auto;">
                     <table>
                         <thead><tr><th>HN</th><th>ชื่อ</th><th>รายการที่ซื้อ</th><th>ยอด (บาท)</th><th>ล่าสุด</th></tr></thead>
                         <tbody>
-                            ${list.map(c => `
+                            ${displayList.map(c => `
                                 <tr>
                                     <td><span class="clickable" onclick="showCustomerDetail('${c.hn}')">${c.hn}</span></td>
                                     <td>${c.name}<br><small style="color:#999">${c.phone}</small></td>
@@ -1423,11 +1425,12 @@
                                     <td style="font-size:0.9em;">${c.lastVisit}</td>
                                 </tr>
                             `).join('')}
+                            ${fullList.length > 200 ? `<tr><td colspan="5" style="text-align:center; color:#888; font-style:italic;">...แสดง 200 รายชื่อแรกจากทั้งหมด ${fullList.length} คน (กรุณาใช้ปุ่ม Copy ด้านล่างเพื่อดึงรายชื่อทั้งหมด)...</td></tr>` : ''}
                         </tbody>
                     </table>
                 </div>
                 <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px;">
-                    <h5>📋 รายชื่อสำหรับ Copy (Excel/Google Sheets)</h5>
+                    <h5>📋 รายชื่อสำหรับ Copy (Excel/Google Sheets) - ทั้งหมด ${fullList.length} คน</h5>
                     <textarea id="modalCopyText" style="width:100%; height:100px; font-size:0.85em; color:#555; border:1px solid #ddd; border-radius:8px; padding:10px;" readonly>${fullCopyText}</textarea>
                     <button class="btn-primary" style="margin-top:10px;" onclick="copyModalText(this)">
                         <i class="fa-regular fa-copy"></i> คัดลอกรายชื่อ
