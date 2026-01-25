@@ -808,25 +808,51 @@
         function getCategoryForRow(row) {
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ';
-            // Custom Categorization Logic
+
+            // --- 1. Specific / New Requests (High Priority) ---
+            if (name.includes('sculptra')) return 'Sculptra';
+            if (name.includes('exosome')) return 'Exosome';
+            if (name.includes('rejuran')) return 'Rejuran';
+            if (name.includes('subsicion') || name.includes('subcision')) return 'Subsicion';
+            
+            // New Categories requested
+            if (name.includes('helios')) return 'Helios';
+            if (name.includes('vella')) return 'Vella';
+            if (name.includes('viva')) return 'Viva';
+            if (name.includes('virgin repair')) return 'Virgin Repair';
+            if (name.includes('body s')) return 'Body S';
+            if (name.includes('g5')) return 'G5';
+            if (name.includes('transamin')) return 'Transamin';
+            
+            // RF (Be careful with matches, but usually safe in this context)
+            if (name.includes('rf')) return 'RF';
+
+            // --- 2. Meso Grouping ---
+            if (name.includes('chanel') || name.includes('l\'ebssc') || name.includes('inno') || name.includes('sakura') || name.includes('meso') || name.includes('made') || name.includes('ฉีดหน้า') || name.includes('prp')) return 'Meso';
+
+            // --- 3. Drip Grouping (Updated) ---
+            // Added: detox, diamond, celeb extra
+            if (name.includes('drip') || name.includes('diamond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน')) return 'Drip';
+
+            // --- 4. Existing Categories ---
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
             if (name.includes('ultraformer') || name.includes('ultra fromer')) return 'Ultraformer';
-            
-            // New Categories
             if (name.includes('co2')) return 'Co2';
-            if (name.includes('slimnow') || name.includes('peptide') || name.includes('คุมหิว') || name.includes('g5') || name.includes('rf หน้าท้อง')) return 'Slimnow';
+            
+            // Slimnow: Removed 'g5' and 'rf' as they have their own categories now
+            if (name.includes('slimnow') || name.includes('peptide') || name.includes('คุมหิว')) return 'Slimnow';
+            
             if (name.includes('dio')) return 'Diode laser';
-
             if (name.includes('botox') || name.includes('โบ')) return 'Botox';
             if (name.includes('filler') || name.includes('ฟิลเลอร์')) return 'Filler';
             if (name.includes('hifu') || name.includes('ulthera') || name.includes('lifting')) return 'HIFU / Lifting';
-            if (name.includes('laser') || name.includes('ipl') || name.includes('pico') || name.includes('เลเซอร์')) return 'Laser Skin';
+            
+            // Picolaser (Was Laser Skin)
+            if (name.includes('laser') || name.includes('ipl') || name.includes('pico') || name.includes('เลเซอร์')) return 'Picolaser';
+            
             if (name.includes('hair') || name.includes('กำจัดขน')) return 'Hair Removal';
-            if (name.includes('meso') || name.includes('made') || name.includes('ฉีดหน้า') || name.includes('prp')) return 'Meso / Treatment';
-            if (name.includes('drip') || name.includes('vitamin') || name.includes('วิตามิน')) return 'Vitamin Drip';
             if (name.includes('fat') || name.includes('สลายไขมัน')) return 'Body / Fat';
             if (name.includes('acne') || name.includes('สิว')) return 'Acne Treatment';
-            // New Categories
             if (name.includes('ยา') || name.includes('medicine') || name.includes('drug') || name.includes('pharmacy') || name.includes('เวชภัณฑ์')) return 'Pharmacy / Medicine';
             if (name.includes('treatment') || name.includes('ทรีทเมนท์') || name.includes('นวด') || name.includes('spa')) return 'Treatment';
             if (name.includes('ค่าแพทย์') || name.includes('df') || name.includes('doctor') || name.includes('consult') || name.includes('บริการ') || name.includes('service')) return 'Consultation / Service';
@@ -932,7 +958,20 @@
                 const pct = prevVal === 0 ? (val > 0 ? 100 : 0) : (diff / prevVal) * 100;
                 const cls = diff > 0 ? 'pos' : (diff < 0 ? 'neg' : 'neu');
                 const icon = diff > 0 ? 'up' : (diff < 0 ? 'down' : 'minus');
-                badgeHtml = `<span class="badge ${cls}"><i class="fa-solid fa-caret-${icon}"></i> ${Math.abs(pct).toFixed(1)}%</span>`;
+                
+                let diffText = '';
+                if (!isPct) {
+                    let unit = '';
+                    if (isMoney) unit = ' บ.';
+                    else if (id.toLowerCase().includes('visit')) unit = ' ครั้ง';
+                    else unit = ' คน'; // Customers
+                    
+                    // Format diff value (no decimals for counts, maybe 0 decimals for large money diffs in badge to save space)
+                    const diffVal = diff.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                    diffText = ` <span style="opacity:0.9; margin-left:3px;">(${diff > 0 ? '+' : ''}${diffVal}${unit})</span>`;
+                }
+
+                badgeHtml = `<span class="badge ${cls}"><i class="fa-solid fa-caret-${icon}"></i> ${Math.abs(pct).toFixed(1)}%${diffText}</span>`;
             }
             el.innerHTML = `${txt} ${badgeHtml}`;
         }
@@ -1060,7 +1099,8 @@
                             const index = active[0].index;
                             const freqCount = freqLabels[index];
                             const hnList = freqMap[freqCount];
-                            renderCustomerListModal(`ลูกค้าที่มาใช้บริการ ${freqCount} ครั้ง`, hnList);
+                            // Pass false to hide copy section
+                            renderCustomerListModal(`ลูกค้าที่มาใช้บริการ ${freqCount} ครั้ง`, hnList, null, false);
                         }
                      },
                      plugins: {
@@ -1365,15 +1405,16 @@
             const hns = new Set();
             filteredData.forEach(r => { if(getCategoryForRow(r)===cat && r.HN) hns.add(r.HN); });
             // Modified to pass the category filter
-            renderCustomerListModal(`หมวดหมู่: ${cat}`, [...hns], cat);
+            renderCustomerListModal(`หมวดหมู่: ${cat}`, [...hns], cat, false);
         }
         
         function showSegmentDetails(key, name) {
             if(!rfmSegmentData[key]) return;
-            renderCustomerListModal(`กลุ่มลูกค้า: ${name}`, rfmSegmentData[key].map(x=>x.hn));
+            renderCustomerListModal(`กลุ่มลูกค้า: ${name}`, rfmSegmentData[key].map(x=>x.hn), null, false);
         }
         
-        function renderCustomerListModal(title, hnList, filterCat = null) {
+        // Modified function to accept showCopy parameter (default false)
+        function renderCustomerListModal(title, hnList, filterCat = null, showCopy = false) {
             document.getElementById('modalTitle').textContent = `📂 ${title} (${hnList.length} คน)`;
             
             // Aggregate data for list (Calculate ALL data first)
@@ -1403,16 +1444,19 @@
             }).filter(item => item !== null)
               .sort((a,b) => b.rev - a.rev);
             
-            // 1. Generate Text for Copy (Using FULL List)
-            const copyHeader = "HN\tชื่อ-สกุล\tเบอร์โทร\tยอดซื้อรวม\tวันที่ล่าสุด\tรายการที่ซื้อ";
-            const copyRows = fullList.map(c => `${c.hn}\t${c.name}\t${c.phone}\t${c.rev}\t${c.lastVisit}\t${c.items}`).join('\n');
-            const fullCopyText = `${copyHeader}\n${copyRows}`;
-
             // 2. Slice for Display (Limit to top 200 for UI performance)
             const displayList = fullList.slice(0, 200);
 
+            // Removing Copy Section Logic
+            let copySectionHtml = '';
+            /*
+            if (showCopy) {
+                // ... (Removed) ...
+            }
+            */
+
             document.getElementById('modalBody').innerHTML = `
-                <div style="max-height:400px; overflow-y:auto;">
+                <div style="max-height:600px; overflow-y:auto;">
                     <table>
                         <thead><tr><th>HN</th><th>ชื่อ</th><th>รายการที่ซื้อ</th><th>ยอด (บาท)</th><th>ล่าสุด</th></tr></thead>
                         <tbody>
@@ -1425,17 +1469,11 @@
                                     <td style="font-size:0.9em;">${c.lastVisit}</td>
                                 </tr>
                             `).join('')}
-                            ${fullList.length > 200 ? `<tr><td colspan="5" style="text-align:center; color:#888; font-style:italic;">...แสดง 200 รายชื่อแรกจากทั้งหมด ${fullList.length} คน (กรุณาใช้ปุ่ม Copy ด้านล่างเพื่อดึงรายชื่อทั้งหมด)...</td></tr>` : ''}
+                            ${fullList.length > 200 ? `<tr><td colspan="5" style="text-align:center; color:#888; font-style:italic;">...แสดง 200 รายชื่อแรกจากทั้งหมด ${fullList.length} คน...</td></tr>` : ''}
                         </tbody>
                     </table>
                 </div>
-                <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px;">
-                    <h5>📋 รายชื่อสำหรับ Copy (Excel/Google Sheets) - ทั้งหมด ${fullList.length} คน</h5>
-                    <textarea id="modalCopyText" style="width:100%; height:100px; font-size:0.85em; color:#555; border:1px solid #ddd; border-radius:8px; padding:10px;" readonly>${fullCopyText}</textarea>
-                    <button class="btn-primary" style="margin-top:10px;" onclick="copyModalText(this)">
-                        <i class="fa-regular fa-copy"></i> คัดลอกรายชื่อ
-                    </button>
-                </div>
+                ${copySectionHtml}
             `;
             openModal('customerModal');
         }
@@ -1456,24 +1494,28 @@
                 freqDist[count] = (freqDist[count] || 0) + 1;
             });
 
-            // 2. Format
+            // 2. Format HTML Table
             const keys = Object.keys(freqDist).map(Number).sort((a,b)=>a-b);
-            let text = "จำนวนครั้งที่มา\tจำนวนลูกค้า(คน)\n";
+            let html = `<div style="max-height:500px; overflow-y:auto;"><table style="margin-top:10px;">
+                        <thead>
+                            <tr>
+                                <th style="background:#eef2ff; color:#6366f1;">จำนวนครั้งที่มาใช้บริการ</th>
+                                <th style="background:#eef2ff; color:#6366f1; text-align:center;">จำนวนลูกค้า (คน)</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+            
             keys.forEach(k => {
-                text += `${k}\t${freqDist[k]}\n`;
+                html += `<tr>
+                            <td style="font-weight:bold;">${k} ครั้ง</td>
+                            <td style="text-align:center;">${freqDist[k].toLocaleString()}</td>
+                         </tr>`;
             });
+            html += `</tbody></table></div>`;
 
-            // 3. Render Modal (Reuse Customer Modal structure)
+            // 3. Render Modal
             document.getElementById('modalTitle').textContent = `📊 สรุปความถี่การใช้บริการ`;
-            document.getElementById('modalBody').innerHTML = `
-                <div style="margin-top:20px;">
-                    <h5>📋 ข้อมูลสำหรับ Copy (Excel/Google Sheets)</h5>
-                    <textarea id="modalCopyText" style="width:100%; height:300px; font-size:0.9em; color:#555; border:1px solid #ddd; border-radius:8px; padding:10px;" readonly>${text}</textarea>
-                    <button class="btn-primary" style="margin-top:10px;" onclick="copyModalText(this)">
-                        <i class="fa-regular fa-copy"></i> คัดลอกข้อมูล
-                    </button>
-                </div>
-            `;
+            document.getElementById('modalBody').innerHTML = html;
             openModal('customerModal');
         }
 
