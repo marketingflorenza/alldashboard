@@ -237,7 +237,6 @@
             color: var(--text-main); 
             margin-bottom: 8px; 
             line-height: 1.4;
-            /* Allow wrapping */
             word-wrap: break-word;
             display: flex;
             flex-wrap: wrap;
@@ -251,7 +250,7 @@
         }
         
         .badge { 
-            font-size: 0.6em; /* Slightly smaller for better fit */
+            font-size: 0.6em; 
             padding: 4px 8px; 
             border-radius: 12px; 
             font-weight: 600;
@@ -836,6 +835,7 @@
             if (name.includes('sculptra')) return 'Sculptra';
             if (name.includes('exosome')) return 'Exosome';
             if (name.includes('rejuran')) return 'Rejuran';
+            if (name.includes('juvelook')) return 'Juvelook'; // Added Juvelook
             if (name.includes('subsicion') || name.includes('subcision')) return 'Subsicion';
             
             // New Categories requested
