@@ -449,7 +449,7 @@
                     <i class="fa-solid fa-filter"></i> กรองข้อมูล
                 </button>
                 <button class="btn-primary" id="exportPdfButton" onclick="exportToPDF()" disabled>
-                    <i class="fa-solid fa-file-pdf"></i> Export PDF
+                    <i class="fa-solid fa-file-pdf"></i> แคปรูป PDF
                 </button>
                 <button class="btn-magic" id="aiSummaryButton" onclick="generateAISummary()" disabled>
                     <i class="fa-solid fa-wand-magic-sparkles"></i> AI Summary
@@ -1620,52 +1620,47 @@
         
         function exportToPDF() {
             const element = document.querySelector('.dashboard-container');
-            const originalOverflows = [];
-
-            // Temporarily expand scrollable tables
-            document.querySelectorAll('.table-scroll').forEach(el => {
-                originalOverflows.push({
-                    element: el,
-                    maxHeight: el.style.maxHeight,
-                    overflowY: el.style.overflowY
-                });
-                el.style.maxHeight = 'none';
-                el.style.overflowY = 'visible';
-            });
-
-            // Hide controls during print
             const controls = document.querySelector('.controls-container');
+            
+            // 1. Hide controls
             controls.style.display = 'none';
 
+            // 2. Get exact size
+            const w = element.scrollWidth;
+            const h = element.scrollHeight;
+
+            // 3. Config for Single Page Screenshot
             const opt = {
-                margin: 10,
-                filename: `Clinic_Sales_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+                margin: 0,
+                filename: `Clinic_Snapshot_${new Date().toISOString().split('T')[0]}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, logging: false, useCORS: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                html2canvas: { 
+                    scale: 2, // Retains quality
+                    useCORS: true,
+                    scrollY: 0,
+                    windowWidth: w,
+                    windowHeight: h
+                },
+                jsPDF: { 
+                    unit: 'px', 
+                    format: [w, h], 
+                    orientation: w > h ? 'l' : 'p' 
+                }
             };
 
-            // Show loading state
+            // Loading state
             const btn = document.getElementById('exportPdfButton');
             const oldContent = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
 
+            // 4. Generate
             html2pdf().set(opt).from(element).save().then(() => {
-                // Restore styles
                 controls.style.display = 'flex';
-                originalOverflows.forEach(obj => {
-                    obj.element.style.maxHeight = obj.maxHeight;
-                    obj.element.style.overflowY = obj.overflowY;
-                });
                 btn.innerHTML = oldContent;
             }).catch(err => {
                 console.error(err);
-                alert('Error generating PDF');
+                alert('Export failed');
                 controls.style.display = 'flex';
-                 originalOverflows.forEach(obj => {
-                    obj.element.style.maxHeight = obj.maxHeight;
-                    obj.element.style.overflowY = obj.overflowY;
-                });
                 btn.innerHTML = oldContent;
             });
         }
