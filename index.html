@@ -16,6 +16,8 @@
     <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- HTML2PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <style>
         /* --- CSS Variables & Theme --- */
@@ -446,6 +448,9 @@
                 <button class="btn-primary" id="filterButton" onclick="filterData()" disabled>
                     <i class="fa-solid fa-filter"></i> กรองข้อมูล
                 </button>
+                <button class="btn-primary" id="exportPdfButton" onclick="exportToPDF()" disabled>
+                    <i class="fa-solid fa-file-pdf"></i> Export PDF
+                </button>
                 <button class="btn-magic" id="aiSummaryButton" onclick="generateAISummary()" disabled>
                     <i class="fa-solid fa-wand-magic-sparkles"></i> AI Summary
                 </button>
@@ -662,6 +667,7 @@
             compareStart: document.getElementById('compareStartDate'),
             compareEnd: document.getElementById('compareEndDate'),
             aiBtn: document.getElementById('aiSummaryButton'),
+            exportPdfBtn: document.getElementById('exportPdfButton'), // Add this
             initialState: document.getElementById('initialState'),
             dashboardContent: document.getElementById('dashboardContent')
         };
@@ -757,7 +763,7 @@
                 // Enable UI
                 els.initialState.style.display = 'none';
                 els.dashboardContent.style.display = 'block';
-                [els.startDate, els.endDate, els.filterBtn, els.compareToggle, els.compareStart, els.compareEnd, els.aiBtn].forEach(el => el.disabled = false);
+                [els.startDate, els.endDate, els.filterBtn, els.compareToggle, els.compareStart, els.compareEnd, els.aiBtn, els.exportPdfBtn].forEach(el => el.disabled = false);
 
                 filterData();
 
@@ -1610,6 +1616,58 @@
             document.getElementById('modalTitle').textContent = `📊 สรุปความถี่การใช้บริการ`;
             document.getElementById('modalBody').innerHTML = html;
             openModal('customerModal');
+        }
+        
+        function exportToPDF() {
+            const element = document.querySelector('.dashboard-container');
+            const originalOverflows = [];
+
+            // Temporarily expand scrollable tables
+            document.querySelectorAll('.table-scroll').forEach(el => {
+                originalOverflows.push({
+                    element: el,
+                    maxHeight: el.style.maxHeight,
+                    overflowY: el.style.overflowY
+                });
+                el.style.maxHeight = 'none';
+                el.style.overflowY = 'visible';
+            });
+
+            // Hide controls during print
+            const controls = document.querySelector('.controls-container');
+            controls.style.display = 'none';
+
+            const opt = {
+                margin: 10,
+                filename: `Clinic_Sales_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, logging: false, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Show loading state
+            const btn = document.getElementById('exportPdfButton');
+            const oldContent = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                // Restore styles
+                controls.style.display = 'flex';
+                originalOverflows.forEach(obj => {
+                    obj.element.style.maxHeight = obj.maxHeight;
+                    obj.element.style.overflowY = obj.overflowY;
+                });
+                btn.innerHTML = oldContent;
+            }).catch(err => {
+                console.error(err);
+                alert('Error generating PDF');
+                controls.style.display = 'flex';
+                 originalOverflows.forEach(obj => {
+                    obj.element.style.maxHeight = obj.maxHeight;
+                    obj.element.style.overflowY = obj.overflowY;
+                });
+                btn.innerHTML = oldContent;
+            });
         }
 
         function copyModalText(btn) {
