@@ -214,21 +214,38 @@
         
         .stat-card { 
             background: white; 
-            padding: 25px; 
+            padding: 20px; /* ลด Padding เพื่อเพิ่มพื้นที่ให้ตัวหนังสือ */
             border-radius: var(--border-radius); 
             box-shadow: var(--shadow-sm); 
             position: relative;
             overflow: hidden;
             transition: transform 0.3s, box-shadow 0.3s;
             border: 1px solid rgba(0,0,0,0.03);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 120px; /* กำหนดความสูงขั้นต่ำให้เท่ากัน */
         }
         .stat-card:hover { 
             transform: translateY(-5px); 
             box-shadow: var(--shadow-md); 
         }
         
-        .stat-value { font-size: 1.8em; font-weight: 700; color: var(--text-main); margin-bottom: 5px; }
-        .stat-label { font-size: 0.9em; color: var(--text-muted); }
+        .stat-value { 
+            font-size: clamp(1.4rem, 2vw, 1.8rem); /* ปรับขนาดฟอนต์ให้ Responsive (1.4rem ถึง 1.8rem) */
+            font-weight: 700; 
+            color: var(--text-main); 
+            margin-bottom: 5px; 
+            line-height: 1.2;
+            white-space: nowrap; /* พยายามไม่ให้ตัดบรรทัดถ้าไม่จำเป็น */
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .stat-label { 
+            font-size: 0.9em; 
+            color: var(--text-muted); 
+            margin-top: auto;
+        }
         
         .badge { 
             font-size: 0.75em; 
@@ -1264,12 +1281,16 @@
         // --- 10. TABLES ---
         function updateCategoryStatsTable() {
             const tbody = document.getElementById('categoryStatsBody');
-            const data = filteredData.reduce((acc, r) => {
+            const thead = document.querySelector('#categoryStatsTable thead tr');
+            
+            const isCompare = els.compareToggle.checked;
+
+            // Helper to process data
+            const process = (dataset) => dataset.reduce((acc, r) => {
                 const c = getCategoryForRow(r);
-                if(!acc[c]) acc[c] = { rev:0, hn:new Set(), payHn:new Set(), visits:{}, items: new Set() }; // Added items set
+                if(!acc[c]) acc[c] = { rev:0, hn:new Set(), payHn:new Set(), visits:{}, items: new Set() };
                 acc[c].rev += (r['ยอดชำระ']||0);
-                if(r['รายการ']) acc[c].items.add(r['รายการ']); // Collect items
-                
+                if(r['รายการ']) acc[c].items.add(r['รายการ']);
                 if(r.HN) {
                     acc[c].hn.add(r.HN);
                     if(r['ยอดชำระ']>0) acc[c].payHn.add(r.HN);
@@ -1277,22 +1298,88 @@
                 }
                 return acc;
             }, {});
-            
-            const sorted = Object.entries(data).sort((a,b)=>b[1].rev - a[1].rev);
-            tbody.innerHTML = sorted.map(([k,v]) => {
-                const repeat = Object.values(v.visits).filter(x => x.size > 1).length;
-                // Format items string
-                const itemsArr = Array.from(v.items);
-                const itemsStr = itemsArr.slice(0, 5).join(', ') + (itemsArr.length > 5 ? ` ... (+${itemsArr.length - 5})` : '');
+
+            const curData = process(filteredData);
+            const prevData = isCompare ? process(compareFilteredData) : {};
+
+            // Get all unique categories
+            const allCats = new Set([...Object.keys(curData), ...Object.keys(prevData)]);
+            const sortedCats = [...allCats].sort((a,b) => (curData[b]?.rev||0) - (curData[a]?.rev||0));
+
+            // Update Header
+            if(isCompare) {
+                thead.innerHTML = `
+                    <th>หมวดหมู่</th>
+                    <th style="text-align:right">ยอดขาย (ปัจจุบัน)</th>
+                    <th style="text-align:right">ยอดขาย (ก่อนหน้า)</th>
+                    <th style="text-align:center">% ยอดขาย</th>
+                    <th style="text-align:center">ลูกค้าจ่าย (ปัจจุบัน)</th>
+                    <th style="text-align:center">ลูกค้าจ่าย (ก่อนหน้า)</th>
+                    <th style="text-align:center">% ลูกค้า</th>
+                `;
+            } else {
+                thead.innerHTML = `
+                    <th>หมวดหมู่</th>
+                    <th>รายการสินค้า/บริการ (Items)</th>
+                    <th>HN ไม่ซ้ำ</th>
+                    <th>HN ที่จ่าย</th>
+                    <th>ยอดรวม (บาท)</th>
+                    <th>กลับมาซ้ำ</th>
+                `;
+            }
+
+            tbody.innerHTML = sortedCats.map(k => {
+                const cur = curData[k] || { rev:0, hn:new Set(), payHn:new Set(), visits:{}, items: new Set() };
                 
-                return `<tr>
-                    <td><span class="clickable" onclick="showCustomersForCategory('${k}')">${k}</span></td>
-                    <td style="font-size:0.85em; color:#666; max-width:300px;">${itemsStr}</td> <!-- New Items Column -->
-                    <td style="text-align:center">${v.hn.size}</td>
-                    <td style="text-align:center">${v.payHn.size}</td>
-                    <td style="text-align:right">${v.rev.toLocaleString()}</td>
-                    <td style="text-align:center">${repeat}</td>
-                </tr>`;
+                // Items string
+                const itemsArr = Array.from(cur.items);
+                const itemsStr = itemsArr.slice(0, 5).join(', ') + (itemsArr.length > 5 ? ` ... (+${itemsArr.length - 5})` : '');
+
+                if(isCompare) {
+                    const prev = prevData[k] || { rev:0, payHn: new Set() };
+                    
+                    // Sales Diff
+                    const diffRev = cur.rev - prev.rev;
+                    const pctRev = prev.rev === 0 ? (cur.rev > 0 ? 100 : 0) : (diffRev / prev.rev) * 100;
+                    const iconRev = diffRev > 0 ? 'fa-arrow-up' : (diffRev < 0 ? 'fa-arrow-down' : 'fa-minus');
+                    const badgeRevClass = diffRev > 0 ? 'pos' : (diffRev < 0 ? 'neg' : 'neu');
+
+                    // HN Diff
+                    const curHN = cur.payHn.size;
+                    const prevHN = prev.payHn ? prev.payHn.size : 0;
+                    const diffHN = curHN - prevHN;
+                    const pctHN = prevHN === 0 ? (curHN > 0 ? 100 : 0) : (diffHN / prevHN) * 100;
+                    const iconHN = diffHN > 0 ? 'fa-arrow-up' : (diffHN < 0 ? 'fa-arrow-down' : 'fa-minus');
+                    const badgeHNClass = diffHN > 0 ? 'pos' : (diffHN < 0 ? 'neg' : 'neu');
+
+                    return `<tr>
+                        <td><span class="clickable" onclick="showCustomersForCategory('${k}')">${k}</span></td>
+                        <td style="text-align:right; font-weight:bold;">${cur.rev.toLocaleString()}</td>
+                        <td style="text-align:right; color:#666;">${prev.rev.toLocaleString()}</td>
+                        <td style="text-align:center">
+                            <span class="badge ${badgeRevClass}">
+                                <i class="fa-solid ${iconRev}"></i> ${Math.abs(pctRev).toFixed(1)}%
+                            </span>
+                        </td>
+                        <td style="text-align:center; font-weight:bold;">${curHN.toLocaleString()}</td>
+                        <td style="text-align:center; color:#666;">${prevHN.toLocaleString()}</td>
+                        <td style="text-align:center">
+                            <span class="badge ${badgeHNClass}">
+                                <i class="fa-solid ${iconHN}"></i> ${Math.abs(pctHN).toFixed(1)}%
+                            </span>
+                        </td>
+                    </tr>`;
+                } else {
+                    const repeat = Object.values(cur.visits).filter(x => x.size > 1).length;
+                    return `<tr>
+                        <td><span class="clickable" onclick="showCustomersForCategory('${k}')">${k}</span></td>
+                        <td style="font-size:0.85em; color:#666; max-width:300px;">${itemsStr}</td>
+                        <td style="text-align:center">${cur.hn.size}</td>
+                        <td style="text-align:center">${cur.payHn.size}</td>
+                        <td style="text-align:right">${cur.rev.toLocaleString()}</td>
+                        <td style="text-align:center">${repeat}</td>
+                    </tr>`;
+                }
             }).join('');
         }
         
