@@ -227,6 +227,8 @@
             flex-direction: column;
             justify-content: center;
             min-height: 120px;
+            /* Avoid page break inside card */
+            page-break-inside: avoid;
         }
         .stat-card:hover { 
             transform: translateY(-5px); 
@@ -291,6 +293,8 @@
             box-shadow: var(--shadow-sm); 
             height: 400px;
             position: relative;
+            /* Avoid page break inside chart */
+            page-break-inside: avoid;
         }
         
         /* --- Tables --- */
@@ -300,6 +304,8 @@
             box-shadow: var(--shadow-sm); 
             overflow: hidden; 
             margin-bottom: 40px;
+            /* Avoid page break inside table wrapper */
+            page-break-inside: avoid;
         }
         
         .table-header {
@@ -351,6 +357,7 @@
             border-radius: 8px;
             margin-bottom: 30px;
             color: #1e3a8a;
+            page-break-inside: avoid;
         }
 
         /* --- Modal --- */
@@ -489,6 +496,11 @@
                     <div class="stat-card">
                         <div class="stat-value" id="newCustomers" style="color:var(--primary-color)">-</div>
                         <div class="stat-label">ลูกค้าใหม่ (ลงทะเบียน)</div>
+                    </div>
+                    <!-- ADDED NEW PAYING CUSTOMERS CARD -->
+                    <div class="stat-card">
+                        <div class="stat-value" id="newPayingCustomers" style="color:var(--accent-color)">-</div>
+                        <div class="stat-label">ลูกค้าใหม่ที่มียอดชำระ (คน)</div>
                     </div>
                     <!-- ADDED PAYING CUSTOMERS CARD -->
                     <div class="stat-card">
@@ -838,10 +850,16 @@
             if (!name) return 'อื่นๆ';
 
             // --- 1. Specific / New Requests (High Priority) ---
+            if (name.includes('morpheus')) return 'Morpheus8'; // Added Morpheus8
+            if (name.includes('aesthefill')) return 'AestheFill'; // Added AestheFill
+            if (name.includes('nad')) return 'NAD'; // Added NAD
+            if (name.includes('ปากกาลดน้ำหนัก') || name.includes('weight loss pen') || name.includes('saxenda')) return 'ปากกาลดน้ำหนัก'; // Added Weight Loss Pen
+            if (name.includes('peelling') || name.includes('peeling')) return 'Peelling'; // Added Peelling
+
             if (name.includes('sculptra')) return 'Sculptra';
             if (name.includes('exosome')) return 'Exosome';
             if (name.includes('rejuran')) return 'Rejuran';
-            if (name.includes('juvelook')) return 'Juvelook'; // Added Juvelook
+            if (name.includes('juvelook')) return 'Juvelook';
             if (name.includes('subsicion') || name.includes('subcision')) return 'Subsicion';
             
             // New Categories requested
@@ -914,7 +932,7 @@
             const end = parseInputDate(els.endDate.value, true);
 
             const calc = (data, isCompare = false) => {
-                if (!data.length) return { rev: 0, visit: 0, cust: 0, payCust: 0, repeat: 0, rate: 0, newReg: 0 };
+                if (!data.length) return { rev: 0, visit: 0, cust: 0, payCust: 0, repeat: 0, rate: 0, newReg: 0, newPayingReg: 0 };
                 const uniqueHN = new Set(data.map(r => r.HN).filter(x => x));
                 const payHN = new Set(data.filter(r => r['ยอดชำระ'] > 0).map(r => r.HN));
                 const rev = data.reduce((s, r) => s + (r['ยอดชำระ'] || 0), 0);
@@ -932,19 +950,15 @@
                 const rate = uniqueHN.size ? (repeatCount / uniqueHN.size) * 100 : 0;
                 
                 // NEW: Calculate New Customers based on Registration Date
-                // We must look at Unique HNs in the current filtered set, and check their reg date
                 let newRegCount = 0;
-                
-                // Note: uniqueHN contains HNs present in filtered sales data.
-                // We need to check if these HNs have a reg date within range.
-                // Since data is flattened, we find the first row with this HN to check reg date.
+                let newPayingRegCount = 0;
+
                 const checkedHN = new Set();
                 data.forEach(r => {
                     if(r.HN && !checkedHN.has(r.HN)) {
                         checkedHN.add(r.HN);
                         if(r.__regDate) {
                             // Check if reg date is within the current filter range
-                            // Use start/end from global state if not compare, or passed range if compare
                             let rangeStart = start;
                             let rangeEnd = end;
                             
@@ -955,12 +969,25 @@
 
                             if (rangeStart && rangeEnd && r.__regDate >= rangeStart && r.__regDate <= rangeEnd) {
                                 newRegCount++;
+                                // Check if this new customer is also a paying customer
+                                if (payHN.has(r.HN)) {
+                                    newPayingRegCount++;
+                                }
                             }
                         }
                     }
                 });
 
-                return { rev, visit: totalVisits, cust: uniqueHN.size, payCust: payHN.size, repeat: repeatCount, rate, newReg: newRegCount };
+                return { 
+                    rev, 
+                    visit: totalVisits, 
+                    cust: uniqueHN.size, 
+                    payCust: payHN.size, 
+                    repeat: repeatCount, 
+                    rate, 
+                    newReg: newRegCount,
+                    newPayingReg: newPayingRegCount
+                };
             };
 
             const cur = calc(filteredData, false);
@@ -969,8 +996,9 @@
             updateStatCard('totalRevenue', cur.rev, prev?.rev, true);
             updateStatCard('totalVisits', cur.visit, prev?.visit);
             updateStatCard('totalCustomers', cur.cust, prev?.cust);
-            updateStatCard('newCustomers', cur.newReg, prev?.newReg); // New Card Update
-            updateStatCard('payingCustomers', cur.payCust, prev?.payCust); // Kept in logic but hidden in HTML if not used
+            updateStatCard('newCustomers', cur.newReg, prev?.newReg); 
+            updateStatCard('newPayingCustomers', cur.newPayingReg, prev?.newPayingReg); // Added New Paying Customers Update
+            updateStatCard('payingCustomers', cur.payCust, prev?.payCust);
             updateStatCard('repeatRate', cur.rate, prev?.rate, false, true);
         }
 
@@ -995,7 +1023,7 @@
                     else if (id.toLowerCase().includes('visit')) unit = ' ครั้ง';
                     else unit = ' คน'; // Customers
                     
-                    // Format diff value (no decimals for counts, maybe 0 decimals for large money diffs in badge to save space)
+                    // Format diff value
                     const diffVal = diff.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
                     diffText = ` <span style="opacity:0.9; margin-left:3px;">(${diff > 0 ? '+' : ''}${diffVal}${unit})</span>`;
                 }
