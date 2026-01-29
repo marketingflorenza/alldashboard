@@ -485,6 +485,25 @@
                         <div class="stat-label">ยอดขายรวม (บาท)</div>
                         <div class="icon-bg"><i class="fa-solid fa-baht-sign"></i></div>
                     </div>
+
+                    <!-- NEW: Avg Revenue Per Head -->
+                     <div class="stat-card">
+                        <div class="stat-value" id="avgRevenuePerHead" style="color:var(--secondary-gradient)">-</div>
+                        <div class="stat-label">ยอดต่อหัว (บาท/คน)</div>
+                    </div>
+                    
+                    <!-- New Customer Revenue -->
+                    <div class="stat-card">
+                        <div class="stat-value" id="newCustomerSales" style="color:var(--primary-color)">-</div>
+                        <div class="stat-label">ยอดขายลูกค้าใหม่ (บาท)</div>
+                    </div>
+
+                    <!-- Existing Customer Revenue -->
+                    <div class="stat-card">
+                        <div class="stat-value" id="existingCustomerSales">-</div>
+                        <div class="stat-label">ยอดขายลูกค้าเก่า (บาท)</div>
+                    </div>
+
                     <div class="stat-card">
                         <div class="stat-value" id="totalVisits">-</div>
                         <div class="stat-label">จำนวน Visit (ครั้ง)</div>
@@ -497,17 +516,20 @@
                         <div class="stat-value" id="newCustomers" style="color:var(--primary-color)">-</div>
                         <div class="stat-label">ลูกค้าใหม่ (ลงทะเบียน)</div>
                     </div>
-                    <!-- ADDED NEW PAYING CUSTOMERS CARD -->
+                    <!-- NEW: Existing Customers (Old Active) -->
+                    <div class="stat-card">
+                        <div class="stat-value" id="existingCustomers">-</div>
+                        <div class="stat-label">ลูกค้าเก่า (คน)</div>
+                    </div>
+
                     <div class="stat-card">
                         <div class="stat-value" id="newPayingCustomers" style="color:var(--accent-color)">-</div>
                         <div class="stat-label">ลูกค้าใหม่ที่มียอดชำระ (คน)</div>
                     </div>
-                    <!-- ADDED PAYING CUSTOMERS CARD -->
                     <div class="stat-card">
                         <div class="stat-value" id="payingCustomers">-</div>
                         <div class="stat-label">ลูกค้าที่มียอดชำระ (คน)</div>
                     </div>
-                    <!-- END ADDED CARD -->
                     <div class="stat-card">
                         <div class="stat-value" id="repeatRate">-</div>
                         <div class="stat-label">อัตราลูกค้าเดิม (Repeat Rate)</div>
@@ -679,7 +701,7 @@
             compareStart: document.getElementById('compareStartDate'),
             compareEnd: document.getElementById('compareEndDate'),
             aiBtn: document.getElementById('aiSummaryButton'),
-            exportPdfBtn: document.getElementById('exportPdfButton'), // Add this
+            exportPdfBtn: document.getElementById('exportPdfButton'), 
             initialState: document.getElementById('initialState'),
             dashboardContent: document.getElementById('dashboardContent')
         };
@@ -850,11 +872,11 @@
             if (!name) return 'อื่นๆ';
 
             // --- 1. Specific / New Requests (High Priority) ---
-            if (name.includes('morpheus')) return 'Morpheus8'; // Added Morpheus8
-            if (name.includes('aesthefill')) return 'AestheFill'; // Added AestheFill
-            if (name.includes('nad')) return 'NAD'; // Added NAD
-            if (name.includes('ปากกาลดน้ำหนัก') || name.includes('weight loss pen') || name.includes('saxenda')) return 'ปากกาลดน้ำหนัก'; // Added Weight Loss Pen
-            if (name.includes('peelling') || name.includes('peeling')) return 'Peelling'; // Added Peelling
+            if (name.includes('morpheus')) return 'Morpheus8'; 
+            if (name.includes('aesthefill')) return 'AestheFill'; 
+            if (name.includes('nad')) return 'NAD'; 
+            if (name.includes('ปากกาลดน้ำหนัก') || name.includes('weight loss pen') || name.includes('saxenda')) return 'ปากกาลดน้ำหนัก'; 
+            if (name.includes('peelling') || name.includes('peeling')) return 'Peelling'; 
 
             if (name.includes('sculptra')) return 'Sculptra';
             if (name.includes('exosome')) return 'Exosome';
@@ -923,7 +945,6 @@
             updatePerformanceMatrix();
             updateRepeatCustomersTable();
             updateTopSpendersTable();
-            // Removed Transaction History Table Update
         }
 
         // --- 7. STATS & COMPARISON ---
@@ -932,7 +953,8 @@
             const end = parseInputDate(els.endDate.value, true);
 
             const calc = (data, isCompare = false) => {
-                if (!data.length) return { rev: 0, visit: 0, cust: 0, payCust: 0, repeat: 0, rate: 0, newReg: 0, newPayingReg: 0 };
+                if (!data.length) return { rev: 0, visit: 0, cust: 0, payCust: 0, repeat: 0, rate: 0, newReg: 0, newPayingReg: 0, newSales: 0, existingSales: 0, existingCust: 0, avgHead: 0 };
+                
                 const uniqueHN = new Set(data.map(r => r.HN).filter(x => x));
                 const payHN = new Set(data.filter(r => r['ยอดชำระ'] > 0).map(r => r.HN));
                 const rev = data.reduce((s, r) => s + (r['ยอดชำระ'] || 0), 0);
@@ -949,34 +971,59 @@
                 const repeatCount = Object.values(visits).filter(v => v.size > 1).length;
                 const rate = uniqueHN.size ? (repeatCount / uniqueHN.size) * 100 : 0;
                 
-                // NEW: Calculate New Customers based on Registration Date
+                // NEW CUSTOMER & REVENUE LOGIC
                 let newRegCount = 0;
                 let newPayingRegCount = 0;
+                let newCustomerSales = 0;
+                let existingCustomerSales = 0;
 
+                // Define Range for "New Customer" Definition (Registered within this period)
+                let rangeStart = start;
+                let rangeEnd = end;
+                if (isCompare) {
+                    rangeStart = parseInputDate(els.compareStart.value);
+                    rangeEnd = parseInputDate(els.compareEnd.value, true);
+                }
+
+                // Used to track counted new HNs to avoid double counting in loop
                 const checkedHN = new Set();
+
                 data.forEach(r => {
+                    const amt = r['ยอดชำระ'] || 0;
+                    
+                    // Logic: Is this transaction from a "New Customer"?
+                    let isNewCustomerTransaction = false;
+
+                    if (r.HN && r.__regDate && rangeStart && rangeEnd) {
+                        if (r.__regDate >= rangeStart && r.__regDate <= rangeEnd) {
+                            isNewCustomerTransaction = true;
+                        }
+                    }
+
+                    // Sum Sales
+                    if (isNewCustomerTransaction) {
+                        newCustomerSales += amt;
+                    } else {
+                        existingCustomerSales += amt;
+                    }
+
+                    // Count HNs (Unique)
                     if(r.HN && !checkedHN.has(r.HN)) {
                         checkedHN.add(r.HN);
-                        if(r.__regDate) {
-                            // Check if reg date is within the current filter range
-                            let rangeStart = start;
-                            let rangeEnd = end;
-                            
-                            if (isCompare) {
-                                rangeStart = parseInputDate(els.compareStart.value);
-                                rangeEnd = parseInputDate(els.compareEnd.value, true);
-                            }
-
-                            if (rangeStart && rangeEnd && r.__regDate >= rangeStart && r.__regDate <= rangeEnd) {
-                                newRegCount++;
-                                // Check if this new customer is also a paying customer
-                                if (payHN.has(r.HN)) {
-                                    newPayingRegCount++;
-                                }
+                        if (isNewCustomerTransaction) {
+                            newRegCount++;
+                            if (payHN.has(r.HN)) {
+                                newPayingRegCount++;
                             }
                         }
                     }
                 });
+                
+                // Calculate Existing Active Customers (Total Active - New Registered)
+                const existingCustCount = uniqueHN.size - newRegCount;
+                
+                // Calculate Avg Per Head (Revenue / Unique Paying Customers)
+                const avgPerHead = payHN.size > 0 ? (rev / payHN.size) : 0;
 
                 return { 
                     rev, 
@@ -986,7 +1033,11 @@
                     repeat: repeatCount, 
                     rate, 
                     newReg: newRegCount,
-                    newPayingReg: newPayingRegCount
+                    newPayingReg: newPayingRegCount,
+                    newSales: newCustomerSales,
+                    existingSales: existingCustomerSales,
+                    existingCust: existingCustCount,
+                    avgHead: avgPerHead
                 };
             };
 
@@ -994,10 +1045,16 @@
             const prev = els.compareToggle.checked ? calc(compareFilteredData, true) : null;
 
             updateStatCard('totalRevenue', cur.rev, prev?.rev, true);
+            updateStatCard('newCustomerSales', cur.newSales, prev?.newSales, true); 
+            updateStatCard('existingCustomerSales', cur.existingSales, prev?.existingSales, true);
+            updateStatCard('avgRevenuePerHead', cur.avgHead, prev?.avgHead, true); 
+            
             updateStatCard('totalVisits', cur.visit, prev?.visit);
             updateStatCard('totalCustomers', cur.cust, prev?.cust);
             updateStatCard('newCustomers', cur.newReg, prev?.newReg); 
-            updateStatCard('newPayingCustomers', cur.newPayingReg, prev?.newPayingReg); // Added New Paying Customers Update
+            updateStatCard('existingCustomers', cur.existingCust, prev?.existingCust); 
+            
+            updateStatCard('newPayingCustomers', cur.newPayingReg, prev?.newPayingReg); 
             updateStatCard('payingCustomers', cur.payCust, prev?.payCust);
             updateStatCard('repeatRate', cur.rate, prev?.rate, false, true);
         }
@@ -1006,7 +1063,8 @@
             const el = document.getElementById(id);
             if(!el) return;
 
-            let txt = val.toLocaleString(undefined, { minimumFractionDigits: isMoney ? 2 : (isPct ? 1 : 0) });
+            // Forced 2 decimal places for everything
+            let txt = val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             if (isPct) txt += '%';
             
             let badgeHtml = '';
@@ -1021,14 +1079,15 @@
                     let unit = '';
                     if (isMoney) unit = ' บ.';
                     else if (id.toLowerCase().includes('visit')) unit = ' ครั้ง';
-                    else unit = ' คน'; // Customers
+                    else unit = ' คน'; 
                     
-                    // Format diff value
-                    const diffVal = diff.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                    diffText = ` <span style="opacity:0.9; margin-left:3px;">(${diff > 0 ? '+' : ''}${diffVal}${unit})</span>`;
+                    // Format diff value to 0 decimals for badge text to save space, or 2 if strict
+                    // Let's stick to 2 since "everything" was requested
+                    const diffVal = Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    diffText = ` <span style="opacity:0.9; margin-left:3px;">(${diff > 0 ? '+' : '-'}${diffVal}${unit})</span>`;
                 }
 
-                badgeHtml = `<span class="badge ${cls}"><i class="fa-solid fa-caret-${icon}"></i> ${Math.abs(pct).toFixed(1)}%${diffText}</span>`;
+                badgeHtml = `<span class="badge ${cls}"><i class="fa-solid fa-caret-${icon}"></i> ${Math.abs(pct).toFixed(2)}%${diffText}</span>`;
             }
             el.innerHTML = `${txt} ${badgeHtml}`;
         }
@@ -1262,7 +1321,7 @@
                  },
                  options: {
                      responsive: true, maintainAspectRatio: false,
-                     plugins: { tooltip: { callbacks: { label: c => `${c.raw.label}: ${c.raw.y.toLocaleString()} บ. (${c.raw.x} ครั้ง)` } } },
+                     plugins: { tooltip: { callbacks: { label: c => `${c.raw.label}: ${c.raw.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} บ. (${c.raw.x} ครั้ง)` } } },
                      scales: {
                          x: { title: {display:true, text:'จำนวนขาย (ครั้ง)'} },
                          y: { title: {display:true, text:'ราคาเฉลี่ย (บาท)'} }
@@ -1280,9 +1339,9 @@
                     <tr>
                         <td style="text-align:center">${i+1}</td>
                         <td>${k}</td>
-                        <td style="text-align:right">${v.rev.toLocaleString()}</td>
+                        <td style="text-align:right">${v.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         <td style="text-align:center">${v.qty.toLocaleString()}</td>
-                        <td style="text-align:right">${(v.rev/v.qty).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+                        <td style="text-align:right">${(v.rev/v.qty).toLocaleString(undefined,{minimumFractionDigits: 2, maximumFractionDigits:2})}</td>
                         <td style="text-align:center">${v.customers.size.toLocaleString()}</td>
                     </tr>
                  `).join('');
@@ -1394,18 +1453,18 @@
 
                     return `<tr>
                         <td><span class="clickable" onclick="showCustomersForCategory('${k}')">${k}</span></td>
-                        <td style="text-align:right; font-weight:bold;">${cur.rev.toLocaleString()}</td>
-                        <td style="text-align:right; color:#666;">${prev.rev.toLocaleString()}</td>
+                        <td style="text-align:right; font-weight:bold;">${cur.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td style="text-align:right; color:#666;">${prev.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         <td style="text-align:center">
                             <span class="badge ${badgeRevClass}">
-                                <i class="fa-solid ${iconRev}"></i> ${Math.abs(pctRev).toFixed(1)}%
+                                <i class="fa-solid ${iconRev}"></i> ${Math.abs(pctRev).toFixed(2)}%
                             </span>
                         </td>
                         <td style="text-align:center; font-weight:bold;">${curHN.toLocaleString()}</td>
                         <td style="text-align:center; color:#666;">${prevHN.toLocaleString()}</td>
                         <td style="text-align:center">
                             <span class="badge ${badgeHNClass}">
-                                <i class="fa-solid ${iconHN}"></i> ${Math.abs(pctHN).toFixed(1)}%
+                                <i class="fa-solid ${iconHN}"></i> ${Math.abs(pctHN).toFixed(2)}%
                             </span>
                         </td>
                     </tr>`;
@@ -1416,7 +1475,7 @@
                         <td style="font-size:0.85em; color:#666; max-width:300px;">${itemsStr}</td>
                         <td style="text-align:center">${cur.hn.size}</td>
                         <td style="text-align:center">${cur.payHn.size}</td>
-                        <td style="text-align:right">${cur.rev.toLocaleString()}</td>
+                        <td style="text-align:right">${cur.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         <td style="text-align:center">${repeat}</td>
                     </tr>`;
                 }
@@ -1449,7 +1508,7 @@
                     <td>${c.phone}</td>
                     <td style="text-align:center">${c.count}</td>
                     <td style="text-align:center">${c.dates.size}</td>
-                    <td style="text-align:right">${c.rev.toLocaleString()}</td>
+                    <td style="text-align:right">${c.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     <td>${c.last}</td>
                 </tr>
             `).join('');
@@ -1477,7 +1536,7 @@
                     <td>${c.name}</td>
                     <td>${c.phone}</td>
                     <td style="font-size:0.85em; color:#666; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${[...c.items].join(', ')}</td>
-                    <td style="text-align:right; font-weight:bold; color:#ec4899">${c.rev.toLocaleString()}</td>
+                    <td style="text-align:right; font-weight:bold; color:#ec4899">${c.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                 </tr>
             `).join('');
         }
@@ -1505,7 +1564,7 @@
                 <div style="background:#f9fafb; padding:15px; border-radius:10px; margin-bottom:15px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                     <div><strong>HN:</strong> ${hn}</div>
                     <div><strong>เบอร์โทร:</strong> ${info['เบอร์โทร']}</div>
-                    <div><strong>ยอดสะสม:</strong> <span style="color:#10b981; font-weight:bold">${total.toLocaleString()} ฿</span></div>
+                    <div><strong>ยอดสะสม:</strong> <span style="color:#10b981; font-weight:bold">${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ฿</span></div>
                     <div><strong>จำนวนครั้ง:</strong> ${new Set(trans.map(r=>r['วันที่ขาย'])).size}</div>
                     <div><strong>วันที่ลงทะเบียน:</strong> ${info.__regDate ? info.__regDate.toLocaleDateString('th-TH') : '-'}</div>
                 </div>
@@ -1518,7 +1577,7 @@
                                 <tr>
                                     <td>${r['วันที่ขาย']}</td>
                                     <td>${r['รายการ']}</td>
-                                    <td style="text-align:right">${(r['ยอดชำระ']||0).toLocaleString()}</td>
+                                    <td style="text-align:right">${(r['ยอดชำระ']||0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1592,7 +1651,7 @@
                                     <td><span class="clickable" onclick="showCustomerDetail('${c.hn}')">${c.hn}</span></td>
                                     <td>${c.name}<br><small style="color:#999">${c.phone}</small></td>
                                     <td style="font-size:0.9em; color:#555;">${c.items}</td>
-                                    <td style="text-align:right; font-weight:bold;">${c.rev.toLocaleString()}</td>
+                                    <td style="text-align:right; font-weight:bold;">${c.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                     <td style="font-size:0.9em;">${c.lastVisit}</td>
                                 </tr>
                             `).join('')}
@@ -1725,7 +1784,7 @@
                 const topCats = Object.entries(cats)
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 5)
-                    .map(([k, v]) => `${k} (${v.toLocaleString()} บ.)`);
+                    .map(([k, v]) => `${k} (${v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} บ.)`);
 
                 // Items
                 const items = payingRows.reduce((acc, r) => {
@@ -1736,7 +1795,7 @@
                 const topItems = Object.entries(items)
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 5)
-                    .map(([k, v]) => `${k} (${v.toLocaleString()} บ.)`);
+                    .map(([k, v]) => `${k} (${v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} บ.)`);
 
                 // Repeat Rate
                 const hnVisits = data.reduce((acc, r) => {
@@ -1747,13 +1806,13 @@
                     return acc;
                 }, {});
                 const repeatCount = Object.values(hnVisits).filter(v => v.size > 1).length;
-                const repeatRate = uniqueHN.size ? ((repeatCount / uniqueHN.size) * 100).toFixed(1) : 0;
+                const repeatRate = uniqueHN.size ? ((repeatCount / uniqueHN.size) * 100).toFixed(2) : 0;
 
                 return {
                     rev: totalRev,
                     cust: uniqueHN.size,
                     visit: visits.size,
-                    avgTicket: visits.size ? (totalRev / visits.size).toFixed(0) : 0,
+                    avgTicket: visits.size ? (totalRev / visits.size).toFixed(2) : 0,
                     topCats,
                     topItems,
                     repeatRate
@@ -1769,10 +1828,10 @@
             txt += `Task: วิเคราะห์ข้อมูลยอดขายและให้คำแนะนำเชิงกลยุทธ์\n\n`;
             
             txt += `## 1. ข้อมูลช่วงเวลาปัจจุบัน (${els.startDate.value} ถึง ${els.endDate.value})\n`;
-            txt += `- ยอดขายรวม: ${cur.rev.toLocaleString()} บาท\n`;
+            txt += `- ยอดขายรวม: ${cur.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} บาท\n`;
             txt += `- จำนวนลูกค้า: ${cur.cust.toLocaleString()} คน\n`;
             txt += `- จำนวนการเข้าใช้บริการ (Visits): ${cur.visit.toLocaleString()} ครั้ง\n`;
-            txt += `- ยอดต่อบิลเฉลี่ย (Avg Ticket): ${cur.avgTicket.toLocaleString()} บาท/ครั้ง\n`;
+            txt += `- ยอดต่อบิลเฉลี่ย (Avg Ticket): ${cur.avgTicket.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} บาท/ครั้ง\n`;
             txt += `- อัตราลูกค้าซื้อซ้ำ (Repeat Rate): ${cur.repeatRate}%\n`;
             txt += `- 5 หมวดหมู่ทำเงินสูงสุด: ${cur.topCats.join(', ')}\n`;
             txt += `- 5 บริการยอดฮิต: ${cur.topItems.join(', ')}\n`;
@@ -1781,7 +1840,7 @@
                 const growth = (val, pVal) => {
                     if (!pVal) return 'N/A';
                     const pct = ((val - pVal) / pVal) * 100;
-                    return `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`;
+                    return `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`;
                 };
                 
                 txt += `\n## 2. เปรียบเทียบกับช่วงก่อนหน้า (${els.compareStart.value} ถึง ${els.compareEnd.value})\n`;
