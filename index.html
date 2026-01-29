@@ -1762,97 +1762,164 @@
         }
 
         function generateAISummary() {
-            // Helper to get stats object
-            const getStats = (data) => {
-                if (!data || data.length === 0) return null;
-                
-                const payingRows = data.filter(r => (r['ยอดชำระ'] || 0) > 0);
-                const totalRev = payingRows.reduce((s, r) => s + r['ยอดชำระ'], 0);
-                
-                const uniqueHN = new Set(data.map(r => r.HN).filter(x => x));
-                const visits = data.reduce((acc, r) => {
-                    if (r.HN && r['วันที่ขาย']) acc.add(`${r.HN}|${r['วันที่ขาย']}`);
-                    return acc;
-                }, new Set());
-                
-                // Categories
-                const cats = payingRows.reduce((acc, r) => {
-                    const c = getCategoryForRow(r);
-                    acc[c] = (acc[c] || 0) + r['ยอดชำระ'];
-                    return acc;
-                }, {});
-                const topCats = Object.entries(cats)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5)
-                    .map(([k, v]) => `${k} (${v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} บ.)`);
+            if (!filteredData || filteredData.length === 0) return alert('ไม่มีข้อมูลสำหรับสรุปผล');
 
-                // Items
-                const items = payingRows.reduce((acc, r) => {
-                    const n = r['รายการ'] || 'Unknown';
-                    acc[n] = (acc[n] || 0) + r['ยอดชำระ'];
-                    return acc;
-                }, {});
-                const topItems = Object.entries(items)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5)
-                    .map(([k, v]) => `${k} (${v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} บ.)`);
-
-                // Repeat Rate
-                const hnVisits = data.reduce((acc, r) => {
-                    if (r.HN && r['วันที่ขาย']) {
-                        if (!acc[r.HN]) acc[r.HN] = new Set();
-                        acc[r.HN].add(r['วันที่ขาย']);
-                    }
-                    return acc;
-                }, {});
-                const repeatCount = Object.values(hnVisits).filter(v => v.size > 1).length;
-                const repeatRate = uniqueHN.size ? ((repeatCount / uniqueHN.size) * 100).toFixed(2) : 0;
-
-                return {
-                    rev: totalRev,
-                    cust: uniqueHN.size,
-                    visit: visits.size,
-                    avgTicket: visits.size ? (totalRev / visits.size).toFixed(2) : 0,
-                    topCats,
-                    topItems,
-                    repeatRate
-                };
-            };
-
-            const cur = getStats(filteredData);
-            const prev = els.compareToggle.checked ? getStats(compareFilteredData) : null;
-
-            if (!cur) return alert('ไม่มีข้อมูลสำหรับสรุปผล');
-
-            let txt = `Role: คุณเป็นที่ปรึกษาทางธุรกิจและการตลาดสำหรับคลินิกความงาม\n`;
-            txt += `Task: วิเคราะห์ข้อมูลยอดขายและให้คำแนะนำเชิงกลยุทธ์\n\n`;
+            // --- 1. OVERVIEW STATS CALCULATIONS ---
+            const uniqueHN = new Set(filteredData.map(r => r.HN).filter(x => x));
+            const payHN = new Set(filteredData.filter(r => r['ยอดชำระ'] > 0).map(r => r.HN));
+            const totalRev = filteredData.reduce((s, r) => s + (r['ยอดชำระ'] || 0), 0);
             
-            txt += `## 1. ข้อมูลช่วงเวลาปัจจุบัน (${els.startDate.value} ถึง ${els.endDate.value})\n`;
-            txt += `- ยอดขายรวม: ${cur.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} บาท\n`;
-            txt += `- จำนวนลูกค้า: ${cur.cust.toLocaleString()} คน\n`;
-            txt += `- จำนวนการเข้าใช้บริการ (Visits): ${cur.visit.toLocaleString()} ครั้ง\n`;
-            txt += `- ยอดต่อบิลเฉลี่ย (Avg Ticket): ${cur.avgTicket.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} บาท/ครั้ง\n`;
-            txt += `- อัตราลูกค้าซื้อซ้ำ (Repeat Rate): ${cur.repeatRate}%\n`;
-            txt += `- 5 หมวดหมู่ทำเงินสูงสุด: ${cur.topCats.join(', ')}\n`;
-            txt += `- 5 บริการยอดฮิต: ${cur.topItems.join(', ')}\n`;
+            // Visits Map (HN -> Set of Dates)
+            const visitsMap = filteredData.reduce((acc, r) => {
+                if (r.HN && r['วันที่ขาย']) {
+                    if (!acc[r.HN]) acc[r.HN] = new Set();
+                    acc[r.HN].add(r['วันที่ขาย']);
+                }
+                return acc;
+            }, {});
+            const totalVisits = Object.values(visitsMap).reduce((s, v) => s + v.size, 0);
+            
+            // New vs Existing Calculations
+            let newRegCount = 0;
+            let newPayingRegCount = 0;
+            let newCustomerSales = 0;
+            let existingCustomerSales = 0;
+            
+            const start = parseInputDate(els.startDate.value);
+            const end = parseInputDate(els.endDate.value, true);
+            const checkedHN = new Set();
 
-            if (prev) {
-                const growth = (val, pVal) => {
-                    if (!pVal) return 'N/A';
-                    const pct = ((val - pVal) / pVal) * 100;
-                    return `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`;
-                };
+            filteredData.forEach(r => {
+                const amt = r['ยอดชำระ'] || 0;
+                let isNew = false;
+                // Check if registered within current filtered range
+                if (r.HN && r.__regDate && start && end) {
+                    if (r.__regDate >= start && r.__regDate <= end) isNew = true;
+                }
+
+                if (isNew) newCustomerSales += amt;
+                else existingCustomerSales += amt;
+
+                if (r.HN && !checkedHN.has(r.HN)) {
+                    checkedHN.add(r.HN);
+                    if (isNew) {
+                        newRegCount++;
+                        if (payHN.has(r.HN)) newPayingRegCount++;
+                    }
+                }
+            });
+
+            const repeatCount = Object.values(visitsMap).filter(v => v.size > 1).length;
+            const repeatRate = uniqueHN.size ? ((repeatCount / uniqueHN.size) * 100).toFixed(2) : 0;
+            const avgHead = payHN.size ? (totalRev / payHN.size) : 0;
+
+            // --- 2. MONTHLY ANALYSIS ---
+            const monthlyData = {};
+            filteredData.forEach(r => {
+                const d = parseThaiDate(r['วันที่ขาย']);
+                if (!d) return;
+                const mKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; // YYYY-MM
                 
-                txt += `\n## 2. เปรียบเทียบกับช่วงก่อนหน้า (${els.compareStart.value} ถึง ${els.compareEnd.value})\n`;
-                txt += `- การเติบโตยอดขาย: ${growth(cur.rev, prev.rev)}\n`;
-                txt += `- การเปลี่ยนแปลงจำนวนลูกค้า: ${growth(cur.cust, prev.cust)}\n`;
-            }
+                if (!monthlyData[mKey]) monthlyData[mKey] = { sales: 0, hns: new Set(), newRegs: new Set() };
+                
+                monthlyData[mKey].sales += (r['ยอดชำระ']||0);
+                if (r.HN) {
+                    monthlyData[mKey].hns.add(r.HN);
+                    // Check if new registration in THAT specific month
+                    if (r.__regDate) {
+                        const regY = r.__regDate.getFullYear();
+                        const regM = r.__regDate.getMonth();
+                        if (regY === d.getFullYear() && regM === d.getMonth()) {
+                            monthlyData[mKey].newRegs.add(r.HN);
+                        }
+                    }
+                }
+            });
 
-            txt += `\n## 3. โจทย์สำหรับการวิเคราะห์:\n`;
-            txt += `1. [วิเคราะห์สุขภาพธุรกิจ] จากตัวเลขยอดขาย, Avg Ticket และ Repeat Rate สถานการณ์ปัจจุบันเป็นอย่างไร?\n`;
-            txt += `2. [สินค้าและบริการ] จาก Top Categories และ Items ควรจัดโปรโมชั่นหรือ Cross-sell อย่างไร?\n`;
-            txt += `3. [กลุ่มเป้าหมาย] แนะนำกลยุทธ์สำหรับลูกค้ากลุ่ม 'At Risk' (เคยมาบ่อยแต่หายไป) เพื่อดึงกลับมาใช้บริการ\n`;
-            txt += `4. [Action Plan] ขอ 3 สิ่งที่ควรทำทันทีในสัปดาห์หน้า`;
+            // --- 3. FREQUENCY DISTRIBUTION ---
+            const freqDist = {};
+            Object.values(visitsMap).forEach(dates => {
+                const count = dates.size;
+                freqDist[count] = (freqDist[count] || 0) + 1;
+            });
+
+            // --- 4. TOP CATEGORIES ---
+            const catStats = filteredData.reduce((acc, r) => {
+                if ((r['ยอดชำระ']||0) > 0) {
+                    const c = getCategoryForRow(r);
+                    acc[c] = (acc[c]||0) + r['ยอดชำระ'];
+                }
+                return acc;
+            }, {});
+            const topCats = Object.entries(catStats).sort((a,b)=>b[1]-a[1]).slice(0, 5);
+
+            // --- 5. TOP ITEMS ---
+            const itemStats = filteredData.reduce((acc, r) => {
+                if (r['รายการ'] && (r['ยอดชำระ']||0) > 0) {
+                    const n = r['รายการ'];
+                    if(!acc[n]) acc[n] = { sales:0, qty:0, hns: new Set() };
+                    acc[n].sales += r['ยอดชำระ'];
+                    acc[n].qty++;
+                    if(r.HN) acc[n].hns.add(r.HN);
+                }
+                return acc;
+            }, {});
+            const topItems = Object.entries(itemStats).sort((a,b)=>b[1].sales-a[1].sales).slice(0, 10);
+
+            // --- BUILD TEXT PROMPT ---
+            const fNum = (n) => n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const fInt = (n) => n.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
+
+            let txt = `Role: คุณเป็น Data Analyst ผู้เชี่ยวชาญด้านธุรกิจคลินิกความงาม
+Task: วิเคราะห์ข้อมูลสรุปยอดขาย (Summary Report) ด้านล่างนี้ เพื่อหา Insight และโอกาสทางธุรกิจ
+
+## 1. ภาพรวมธุรกิจ (Overview)
+- ยอดขายรวม: ${fNum(totalRev)} บาท
+- ยอดขายลูกค้าใหม่: ${fNum(newCustomerSales)} บาท
+- ยอดขายลูกค้าเก่า: ${fNum(existingCustomerSales)} บาท
+- ยอดต่อหัว (Avg/Head): ${fNum(avgHead)} บาท/คน
+- จำนวน Visit รวม: ${fInt(totalVisits)} ครั้ง
+- ลูกค้าทั้งหมด (Total Unique HN): ${fInt(uniqueHN.size)} คน
+- ลูกค้าที่มียอดชำระ (Paying Customers): ${fInt(payHN.size)} คน
+- ลูกค้าใหม่ (New Registered): ${fInt(newRegCount)} คน
+- ลูกค้าใหม่ที่มียอดชำระ: ${fInt(newPayingRegCount)} คน
+- อัตราลูกค้าเดิม (Repeat Rate): ${repeatRate}%
+
+## 2. การวิเคราะห์ข้อมูลรายเดือน (Monthly Analysis)
+(ข้อมูลเรียงตามเดือน)
+`;
+
+            Object.keys(monthlyData).sort().forEach(m => {
+                const d = monthlyData[m];
+                const newC = d.newRegs.size;
+                const oldC = d.hns.size - newC;
+                txt += `- ${m}: ยอดขาย ${fNum(d.sales)} | ลูกค้า ${fInt(d.hns.size)} คน (ใหม่ ${fInt(newC)}, เก่า ${fInt(oldC)})\n`;
+            });
+
+            txt += `\n## 3. ความถี่การใช้บริการ (Frequency Distribution)\n`;
+            Object.keys(freqDist).map(Number).sort((a,b)=>a-b).slice(0, 10).forEach(k => {
+                txt += `- มา ${k} ครั้ง: ${fInt(freqDist[k])} คน\n`;
+            });
+            if(Object.keys(freqDist).length > 10) txt += `- ...และอื่นๆ\n`;
+
+            txt += `\n## 4. ยอดขายตามหมวดหมู่ (Top Categories)\n`;
+            topCats.forEach(([c, s]) => {
+                txt += `- ${c}: ${fNum(s)} บาท\n`;
+            });
+
+            txt += `\n## 5. 10 อันดับบริการยอดฮิต (Top Items)\n`;
+            txt += `Format: [ชื่อรายการ] | ยอดขาย | จำนวนขาย | ราคาเฉลี่ย | ลูกค้าไม่ซ้ำ\n`;
+            topItems.forEach(([n, d], i) => {
+                const avg = d.sales / d.qty;
+                txt += `${i+1}. [${n}] | ${fNum(d.sales)} บ. | ${fInt(d.qty)} ครั้ง | ~${fNum(avg)} บ. | ${fInt(d.hns.size)} คน\n`;
+            });
+
+            txt += `\n---------------------------------\n`;
+            txt += `คำถามสำหรับการวิเคราะห์ (Actionable Insights):\n`;
+            txt += `1. [Trend Analysis] จากข้อมูลรายเดือน (ยอดขาย vs จำนวนลูกค้าใหม่/เก่า) ธุรกิจกำลังเติบโต ถดถอย หรือทรงตัว? เพราะอะไร?\n`;
+            txt += `2. [Customer Strategy] สัดส่วนรายได้จากลูกค้าใหม่ vs เก่า เป็นอย่างไร? ควรเน้นหาใหม่หรือรักษาเก่า?\n`;
+            txt += `3. [Product Strategy] จาก Top Items และ Categories ควรจัดโปรโมชั่นแบบไหน? สินค้าตัวไหนเป็น Magnet ตัวไหนทำกำไร?\n`;
+            txt += `4. [Next Steps] ขอ 3 สิ่งที่ผู้บริหารคลินิกควรทำทันทีในเดือนหน้า\n`;
 
             document.getElementById('aiSummaryText').value = txt;
             openModal('aiSummaryModal');
