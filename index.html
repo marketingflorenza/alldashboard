@@ -872,8 +872,26 @@
             if (!name) return 'อื่นๆ';
 
             // --- 1. Specific / New Requests (High Priority) ---
+            
+            // Aesthe Fill (Supports both 'AestheFill' and 'Aesthe Fill')
+            if (name.includes('aesthefill') || name.includes('aesthe fill')) return 'Aesthe Fill'; 
+            
+            // Profhilo
+            if (name.includes('profhilo')) return 'Profhilo';
+            
+            // Melasma
+            if (name.includes('melasma')) return 'Melasma';
+            
+            // Q Switch
+            if (name.includes('q switch') || name.includes('q-switch')) return 'Q Switch';
+            
+            // BSAM
+            if (name.includes('bsam')) return 'BSAM';
+            
+            // Keloid
+            if (name.includes('keloid')) return 'Keloid';
+
             if (name.includes('morpheus')) return 'Morpheus8'; 
-            if (name.includes('aesthefill')) return 'AestheFill'; 
             if (name.includes('nad')) return 'NAD'; 
             if (name.includes('ปากกาลดน้ำหนัก') || name.includes('weight loss pen') || name.includes('saxenda')) return 'ปากกาลดน้ำหนัก'; 
             if (name.includes('peelling') || name.includes('peeling')) return 'Peelling'; 
@@ -884,11 +902,17 @@
             if (name.includes('juvelook')) return 'Juvelook';
             if (name.includes('subsicion') || name.includes('subcision')) return 'Subsicion';
             
+            // Antidark
+            if (name.includes('antidark')) return 'Antidark';
+
             // New Categories requested
             if (name.includes('helios')) return 'Helios';
             if (name.includes('vella')) return 'Vella';
             if (name.includes('viva')) return 'Viva';
-            if (name.includes('virgin repair')) return 'Virgin Repair';
+            
+            // Virgin Repair (includes เก้าอี้มหัสจรรย์)
+            if (name.includes('virgin repair') || name.includes('vergin repair') || name.includes('เก้าอี้มหัสจรรย์') || name.includes('เก้าอี้มหัศจรรย์')) return 'Virgin Repair';
+            
             if (name.includes('body s')) return 'Body S';
             if (name.includes('g5')) return 'G5';
             if (name.includes('transamin')) return 'Transamin';
@@ -896,34 +920,46 @@
             // RF (Be careful with matches, but usually safe in this context)
             if (name.includes('rf')) return 'RF';
 
+            // Vitamin (Specific request for GC 50000, Vitc)
+            if (name.includes('gc 50000') || name.includes('vitc')) return 'Vitamin';
+
             // --- 2. Meso Grouping ---
-            if (name.includes('chanel') || name.includes('l\'ebssc') || name.includes('inno') || name.includes('sakura') || name.includes('meso') || name.includes('made') || name.includes('ฉีดหน้า') || name.includes('prp')) return 'Meso';
+            // Added Guna Collagen, Derma care, reborn glass skin, Seenskin, SSDN, L'ebss
+            if (name.includes('chanel') || name.includes("l'ebss") || name.includes('inno') || name.includes('sakura') || name.includes('meso') || name.includes('made') || name.includes('ฉีดหน้า') || name.includes('prp') || name.includes('guna collagen') || name.includes('derma care') || name.includes('reborn glass skin') || name.includes('seenskin') || name.includes('ssdn')) return 'Meso';
 
             // --- 3. Drip Grouping (Updated) ---
-            // Added: detox, diamond, celeb extra
-            if (name.includes('drip') || name.includes('diamond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน')) return 'Drip';
+            // Added Healthy Bright, IV Daimond, Vit-C
+            if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || name.includes('vit-c')) return 'Drip';
 
             // --- 4. Existing Categories ---
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
-            if (name.includes('ultraformer') || name.includes('ultra fromer')) return 'Ultraformer';
+            
+            // Ultraformer (Added 'ultra former')
+            if (name.includes('ultraformer') || name.includes('ultra fromer') || name.includes('ultra former')) return 'Ultraformer';
+            
             if (name.includes('co2')) return 'Co2';
             
             // Slimnow: Removed 'g5' and 'rf' as they have their own categories now
             if (name.includes('slimnow') || name.includes('peptide') || name.includes('คุมหิว')) return 'Slimnow';
             
-            if (name.includes('dio')) return 'Diode laser';
+            // Diode Laser (Added IPL)
+            if (name.includes('dio') || name.includes('ipl')) return 'Diode laser';
+            
             if (name.includes('botox') || name.includes('โบ')) return 'Botox';
             if (name.includes('filler') || name.includes('ฟิลเลอร์')) return 'Filler';
             if (name.includes('hifu') || name.includes('ulthera') || name.includes('lifting')) return 'HIFU / Lifting';
             
-            // Picolaser (Was Laser Skin)
-            if (name.includes('laser') || name.includes('ipl') || name.includes('pico') || name.includes('เลเซอร์')) return 'Picolaser';
+            // Picolaser (Removed IPL check which was previously here: || name.includes('ipl'))
+            if (name.includes('laser') || name.includes('pico') || name.includes('เลเซอร์')) return 'Picolaser';
             
             if (name.includes('hair') || name.includes('กำจัดขน')) return 'Hair Removal';
             if (name.includes('fat') || name.includes('สลายไขมัน')) return 'Body / Fat';
             if (name.includes('acne') || name.includes('สิว')) return 'Acne Treatment';
             if (name.includes('ยา') || name.includes('medicine') || name.includes('drug') || name.includes('pharmacy') || name.includes('เวชภัณฑ์')) return 'Pharmacy / Medicine';
-            if (name.includes('treatment') || name.includes('ทรีทเมนท์') || name.includes('นวด') || name.includes('spa')) return 'Treatment';
+            
+            // Treatment (Added Mark Collagen)
+            if (name.includes('treatment') || name.includes('ทรีทเมนท์') || name.includes('นวด') || name.includes('spa') || name.includes('mark collagen')) return 'Treatment';
+            
             if (name.includes('ค่าแพทย์') || name.includes('df') || name.includes('doctor') || name.includes('consult') || name.includes('บริการ') || name.includes('service')) return 'Consultation / Service';
             if (name.includes('product') || name.includes('cream') || name.includes('gel') || name.includes('foam') || name.includes('sunscreen') || name.includes('set')) return 'Products / Skincare';
             
@@ -1928,7 +1964,12 @@ Task: วิเคราะห์ข้อมูลสรุปยอดขา�
         function copyAIPrompt(btn) {
             const t = document.getElementById('aiSummaryText');
             t.select();
-            navigator.clipboard.writeText(t.value);
+            t.setSelectionRange(0, 99999); // For mobile devices
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Fallback copy failed', err);
+            }
             const oldText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว';
             setTimeout(() => btn.innerHTML = oldText, 2000);
