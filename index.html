@@ -292,6 +292,7 @@
     <div id="freqModal" class="modal"><div class="modal-content" style="max-width:500px;"><div class="modal-header"><h3>สรุปความถี่การใช้บริการ</h3><span class="close-btn" onclick="closeModal('freqModal')">&times;</span></div><div class="modal-body" id="freqModalBody"></div></div></div>
 
     <script>
+        // --- Core Configuration ---
         Chart.defaults.font.family = "'Prompt', sans-serif";
         let rawData = [], filteredData = [], compareData = [], processedCustomers = [];
         let charts = {};
@@ -506,15 +507,16 @@
             }).join('');
         }
 
-        // --- Permanent High Priority Category Logic (Refined) ---
+        // --- Requested Classification Logic (Standardized) ---
         function getCategoryForRow(row) {
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ';
 
             // --- 1. Specific / New Requests (High Priority) ---
+            if (name.includes('ultra for mer')) return 'Ultrafomer';
             if (name.includes('aesthefill') || name.includes('aesthe fill')) return 'Aesthe Fill'; 
             if (name.includes('profhilo')) return 'Profhilo';
-            if (name.includes('melasma')) return 'Melasma';
+            if (name.includes('melasma') || name.includes('ฉีดฝ้า')) return 'Melasma';
             if (name.includes('q switch') || name.includes('q-switch')) return 'Q Switch';
             if (name.includes('bsam')) return 'BSAM';
             if (name.includes('keloid')) return 'Keloid';
@@ -532,21 +534,28 @@
             if (name.includes('antidark')) return 'Antidark';
 
             if (name.includes('helios')) return 'Helios';
-            if (name.includes('vella')) return 'Vella';
+            if (name.includes('vella') || name.includes('vela')) return 'Vela';
             if (name.includes('viva')) return 'Viva';
             if (name.includes('virgin repair') || name.includes('vergin repair') || name.includes('เก้าอี้มหัสจรรย์') || name.includes('เก้าอี้มหัศจรรย์')) return 'Virgin Repair';
             
             if (name.includes('body s')) return 'Body S';
             if (name.includes('g5')) return 'G5';
-            if (name.includes('transamin')) return 'Transamin';
+            if (name.includes('transamin') || name.includes('whitening program')) return 'Transamin';
             if (name.includes('rf')) return 'RF';
-            if (name.includes('gc 50000') || name.includes('vitc')) return 'Vitamin';
+            if (name.includes('gc 50000') || name.includes('vitc') || name.includes('push vit c')) return 'Push';
+            
+            if (name.includes('ฉีดเปปไทด์')) return 'Peptide';
+            if (name.includes('evo')) return 'EVO';
+            if (name.includes('cpl')) return 'CPL';
+            if (name.includes('วงเงินเหลือ') || name.includes('บัตร bornsong card 35,000')) return 'วงเงินเหลือ';
+            if (name.includes('liporase')) return 'Liporase';
+            if (name.includes('pms')) return 'PMS';
 
             // --- 2. Meso Grouping ---
             if (name.includes('chanel') || name.includes("l'ebss") || name.includes('inno') || name.includes('sakura') || name.includes('meso') || name.includes('made') || name.includes('ฉีดหน้า') || name.includes('prp') || name.includes('guna collagen') || name.includes('derma care') || name.includes('reborn glass skin') || name.includes('seenskin') || name.includes('ssdn')) return 'Meso';
 
             // --- 3. Drip Grouping ---
-            if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || name.includes('vit-c')) return 'Drip';
+            if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || name.includes('vit-c') || name.includes('glow vital white') || name.includes('bornie secret white') || name.includes('extra white plus') || name.includes('onny white') || name.includes('oppa white') || name.includes('glow super glow')) return 'Drip';
 
             // --- 4. Existing Categories ---
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
@@ -562,7 +571,7 @@
             if (name.includes('fat') || name.includes('สลายไขมัน')) return 'Body / Fat';
             if (name.includes('acne') || name.includes('สิว')) return 'Acne Treatment';
             if (name.includes('ยา') || name.includes('medicine') || name.includes('drug') || name.includes('pharmacy') || name.includes('เวชภัณฑ์')) return 'Pharmacy / Medicine';
-            if (name.includes('treatment') || name.includes('ทรีทเมนท์') || name.includes('นวด') || name.includes('spa') || name.includes('mark collagen')) return 'Treatment';
+            if (name.includes('treatment') || name.includes('ทรีทเมนท์') || name.includes('นวด') || name.includes('spa') || name.includes('mark collagen') || name.includes('cryo')) return 'Treatment';
             if (name.includes('ค่าแพทย์') || name.includes('df') || name.includes('doctor') || name.includes('consult') || name.includes('บริการ') || name.includes('service')) return 'Consultation / Service';
             if (name.includes('product') || name.includes('cream') || name.includes('gel') || name.includes('foam') || name.includes('sunscreen') || name.includes('set')) return 'Products / Skincare';
 
@@ -614,7 +623,6 @@
         function renderCharts() {
             Object.values(charts).forEach(c => c.destroy());
             
-            // 1. Comparative Daily
             const getDaily = (data) => data.reduce((acc, r) => {
                 const d = r['วันที่ขาย'];
                 acc[d] = (acc[d]||0) + r['ยอดชำระ'];
@@ -733,7 +741,7 @@
             }, {});
             const sorted = Object.entries(hnGroups).map(([hn, data]) => ({ hn, ...data })).sort((a,b) => b.total - a.total);
             document.getElementById('listModalTitle').textContent = `📂 หมวดหมู่: ${catName}`;
-            document.getElementById('listModalBody').innerHTML = `<table style="width:100%"><thead><tr><th>HN</th><th>ชื่อ / เบอร์โทร</th><th style="text-align:right">ยอด</th><th>รายการ</th></tr></thead><tbody>${sorted.map(c => `<tr><td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td><td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td><td style="text-align:right; font-weight:700">${c.total.toLocaleString()}</td><td style="font-size:0.75rem; color:#666">${Array.from(c.items).join(', ')}</td></tr>`).join('')}</tbody></table>`;
+            document.getElementById('listModalBody').innerHTML = `<table style="width:100%"><thead><tr><th>HN</th><th>ชื่อ / เบอร์โทร</th><th style="text-align:right">ยอดรวมหมวด</th><th>รายการที่ทำ</th></tr></thead><tbody>${sorted.map(c => `<tr><td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td><td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td><td style="text-align:right; font-weight:700">${c.total.toLocaleString()}</td><td style="font-size:0.75rem; color:#666">${Array.from(c.items).join(', ')}</td></tr>`).join('')}</tbody></table>`;
             openModal('listModal');
         }
 
@@ -754,7 +762,6 @@
             openModal('custModal');
         }
 
-        // --- Strategic Summary Prompt ---
         function showAIModal() {
             const fNum = (n) => n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             const fInt = (n) => n.toLocaleString(undefined, {maximumFractionDigits: 0});
