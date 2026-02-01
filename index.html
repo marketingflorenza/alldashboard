@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinic Sales Analytics Dashboard (Pro)</title>
+    <title>Clinic Sales Analytics Dashboard (Ultimate Pro)</title>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,11 +16,9 @@
     <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- HTML2PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <style>
-        /* --- CSS Variables & Theme --- */
         :root {
             --primary-color: #6366f1;
             --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
@@ -35,6 +33,9 @@
             --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
             --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
             --font-family: 'Prompt', sans-serif;
+            
+            --tier-0: #94a3b8; --tier-1: #64748b; --tier-2: #3b82f6; --tier-3: #10b981;
+            --tier-4: #f59e0b; --tier-5: #ea580c; --tier-6: #be123c;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -45,559 +46,179 @@
             color: var(--text-main);
             min-height: 100vh;
             padding: 20px;
-            /* Mesh Gradient Background */
             background-image: 
-                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.15) 0px, transparent 50%);
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.05) 0px, transparent 50%);
             background-attachment: fixed;
         }
 
-        /* --- Layout Container --- */
         .dashboard-container { 
-            max-width: 1600px; 
-            margin: 0 auto; 
-            background: rgba(255, 255, 255, 0.85);
-            border-radius: 24px; 
-            box-shadow: var(--shadow-lg);
-            border: 1px solid rgba(255,255,255,0.6);
-            backdrop-filter: blur(12px);
-            overflow: hidden; 
+            max-width: 1600px; margin: 0 auto; 
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 24px; box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(10px); overflow: hidden; 
         }
 
-        /* --- Header --- */
-        .header { 
-            background: var(--primary-gradient); 
-            color: white; 
-            padding: 40px 30px; 
-            text-align: center; 
-            position: relative;
-        }
-        
-        .header h1 { 
-            font-size: 2.2em; 
-            font-weight: 700; 
-            margin-bottom: 10px; 
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1); 
-        }
-        
-        .header p { 
-            font-size: 1.1em; 
-            opacity: 0.95; 
-            font-weight: 300; 
-        }
+        .header { background: var(--primary-gradient); color: white; padding: 30px; text-align: center; }
 
-        /* --- Controls Bar --- */
         .controls-container { 
-            background: white; 
-            padding: 20px 30px; 
-            border-bottom: 1px solid #e5e7eb; 
-            display: flex; 
-            gap: 20px; 
-            align-items: flex-end; 
-            flex-wrap: wrap; 
-            box-shadow: var(--shadow-sm);
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            background: white; padding: 20px 30px; border-bottom: 1px solid #e5e7eb; 
+            display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; 
+            position: sticky; top: 0; z-index: 100;
         }
 
-        .input-group { display: flex; flex-direction: column; gap: 6px; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
         .input-group label { font-size: 0.85em; font-weight: 600; color: var(--text-muted); }
-        
-        .input-group input, .input-group select { 
-            padding: 10px 14px; 
-            border: 1px solid #d1d5db; 
-            border-radius: 10px; 
-            font-size: 14px; 
-            font-family: var(--font-family);
-            background-color: #f9fafb;
+        .input-group input, .input-group select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-family: var(--font-family); }
+
+        .btn-group { margin-left: auto; display: flex; gap: 10px; }
+        button {
+            border: none; padding: 10px 18px; border-radius: 10px; cursor: pointer;
+            font-weight: 600; font-family: var(--font-family); display: flex; align-items: center; gap: 8px;
             transition: all 0.2s;
         }
-        .input-group input:focus { 
-            border-color: var(--primary-color); 
-            outline: none; 
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); 
-            background-color: white;
-        }
-
-        .compare-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 0 15px;
-            border-left: 1px solid #e5e7eb;
-            border-right: 1px solid #e5e7eb;
-            height: 42px;
-        }
+        .btn-primary { background: var(--text-main); color: white; }
+        .btn-magic { background: var(--secondary-gradient); color: white; }
+        .btn-sm { padding: 4px 10px; font-size: 0.75rem; border-radius: 6px; background: #f3f4f6; color: var(--primary-color); border: 1px solid #e5e7eb; font-weight: 600; }
+        .btn-sm:hover { background: var(--primary-color); color: white; border-color: var(--primary-color); }
         
-        #compareDateRange { 
-            display: none; 
-            gap: 15px; 
-            animation: fadeIn 0.3s ease;
-        }
+        button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
+        button:disabled { background: #e5e7eb; cursor: not-allowed; }
 
-        /* --- Buttons --- */
-        .btn-group { margin-left: auto; display: flex; gap: 10px; }
-        
-        button {
-            border: none;
-            padding: 10px 20px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            font-family: var(--font-family);
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .btn-primary { 
-            background: var(--text-main); 
-            color: white; 
-        }
-        .btn-primary:hover:not(:disabled) { 
-            transform: translateY(-2px); 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2); 
-            background: #000;
-        }
-
-        .btn-magic { 
-            background: var(--secondary-gradient); 
-            color: white; 
-        }
-        .btn-magic:hover:not(:disabled) { 
-            transform: translateY(-2px); 
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); 
-        }
-        
-        .btn-sm {
-            padding: 5px 10px;
-            font-size: 0.8em;
-            border-radius: 6px;
-            background: #eef2ff;
-            color: var(--primary-color);
-            border: 1px solid #e0e7ff;
-        }
-        .btn-sm:hover {
-            background: #e0e7ff;
-        }
-
-        button:disabled { 
-            background: #e5e7eb; 
-            color: #9ca3af; 
-            cursor: not-allowed; 
-            transform: none; 
-            box-shadow: none; 
-        }
-
-        /* --- Main Content --- */
         .main-content { padding: 30px; }
-        
-        .initial-state { 
-            text-align: center; 
-            padding: 80px 20px; 
-            color: var(--text-muted); 
-            background: white;
-            border-radius: 20px;
-            border: 2px dashed #e5e7eb;
-        }
-        .initial-state i { font-size: 3em; margin-bottom: 20px; color: #d1d5db; }
 
-        /* --- Stats Grid --- */
-        .stats-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
-            gap: 20px; 
-            margin-bottom: 40px; 
-        }
-        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 40px; }
         .stat-card { 
-            background: white; 
-            padding: 20px; 
-            border-radius: var(--border-radius); 
-            box-shadow: var(--shadow-sm); 
-            position: relative;
-            overflow: hidden;
-            transition: transform 0.3s, box-shadow 0.3s;
-            border: 1px solid rgba(0,0,0,0.03);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            min-height: 120px;
-            /* Avoid page break inside card */
-            page-break-inside: avoid;
+            background: white; padding: 15px; border-radius: var(--border-radius); 
+            box-shadow: var(--shadow-sm); border: 1px solid #f3f4f6;
+            display: flex; flex-direction: column; justify-content: center;
+            min-height: 120px; page-break-inside: avoid;
         }
-        .stat-card:hover { 
-            transform: translateY(-5px); 
-            box-shadow: var(--shadow-md); 
-        }
-        
-        .stat-value { 
-            font-size: clamp(1.4rem, 2vw, 1.8rem); 
-            font-weight: 700; 
-            color: var(--text-main); 
-            margin-bottom: 8px; 
-            line-height: 1.4;
-            word-wrap: break-word;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 8px;
-        }
-        .stat-label { 
-            font-size: 0.9em; 
-            color: var(--text-muted); 
-            margin-top: auto;
-        }
-        
-        .badge { 
-            font-size: 0.6em; 
-            padding: 4px 8px; 
-            border-radius: 12px; 
-            font-weight: 600;
-            vertical-align: middle;
-            white-space: nowrap;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
+        .stat-value { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(48%, 1fr)); gap: 25px; margin-bottom: 30px; }
+        .chart-box { background: white; padding: 20px; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); height: 400px; position: relative; }
+
+        .section-header { margin: 40px 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb; display: flex; align-items: center; gap: 10px; }
+        .section-header h2 { font-size: 1.4rem; font-weight: 700; color: var(--text-main); }
+
+        .table-wrapper { background: white; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); margin-bottom: 30px; overflow: hidden; page-break-inside: avoid; }
+        .table-header { padding: 15px 20px; background: #f9fafb; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
+        .table-scroll { max-height: 500px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f9fafb; padding: 12px 15px; text-align: left; font-size: 0.8rem; color: var(--text-muted); position: sticky; top: 0; z-index: 5; text-transform: uppercase; }
+        td { padding: 12px 15px; border-bottom: 1px solid #f3f4f6; font-size: 0.85rem; }
+        tr:hover td { background: #f8fafc; }
+
+        .badge { font-size: 0.65rem; padding: 3px 8px; border-radius: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
         .badge.pos { background: #dcfce7; color: #166534; }
         .badge.neg { background: #fee2e2; color: #991b1b; }
         .badge.neu { background: #f3f4f6; color: #4b5563; }
 
-        /* --- Charts Section --- */
-        .section-header { 
-            display: flex; 
-            align-items: center; 
-            gap: 10px; 
-            margin-bottom: 20px; 
-            padding-bottom: 10px;
-            border-bottom: 2px solid #f3f4f6;
-        }
-        .section-title { font-size: 1.4em; font-weight: 700; color: var(--text-main); }
+        .segment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .segment-card { background: white; border-radius: 12px; padding: 15px; border-left: 5px solid #ddd; box-shadow: var(--shadow-sm); cursor: pointer; transition: transform 0.2s; }
+        .segment-card:hover { transform: translateY(-3px); }
+        .seg-label { font-weight: 700; font-size: 0.85rem; display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .seg-val { font-size: 1.1rem; font-weight: 700; color: var(--primary-color); }
         
-        .charts-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr)); 
-            gap: 30px; 
-            margin-bottom: 40px; 
-        }
-        
-        .chart-box { 
-            background: white; 
-            padding: 25px; 
-            border-radius: var(--border-radius); 
-            box-shadow: var(--shadow-sm); 
-            height: 400px;
-            position: relative;
-            /* Avoid page break inside chart */
-            page-break-inside: avoid;
-        }
-        
-        /* --- Tables --- */
-        .table-wrapper {
-            background: white;
-            border-radius: var(--border-radius); 
-            box-shadow: var(--shadow-sm); 
-            overflow: hidden; 
-            margin-bottom: 40px;
-            /* Avoid page break inside table wrapper */
-            page-break-inside: avoid;
-        }
-        
-        .table-header {
-            padding: 20px 25px;
-            background: white;
-            border-bottom: 1px solid #f3f4f6;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .table-header h3 { font-size: 1.1em; font-weight: 700; }
-
-        .table-scroll { max-height: 500px; overflow-y: auto; }
-
-        table { width: 100%; border-collapse: collapse; }
-        th { 
-            background: #f9fafb; 
-            padding: 15px 20px; 
-            text-align: left; 
-            font-weight: 600; 
-            color: var(--text-muted); 
-            font-size: 0.9em; 
-            position: sticky; 
-            top: 0; 
-            z-index: 10;
-        }
-        td { 
-            padding: 14px 20px; 
-            border-bottom: 1px solid #f3f4f6; 
-            font-size: 0.95em; 
-        }
-        tr:hover td { background-color: #f8fafc; }
-
-        .clickable { 
-            color: var(--primary-color); 
-            cursor: pointer; 
-            font-weight: 500; 
-            text-decoration: underline; 
-            text-decoration-color: transparent;
-            transition: text-decoration-color 0.2s;
-        }
-        .clickable:hover { text-decoration-color: var(--primary-color); }
-
-        /* --- Insights Box --- */
-        .insights-box {
-            background: #eff6ff;
-            border-left: 5px solid #3b82f6;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            color: #1e3a8a;
-            page-break-inside: avoid;
-        }
-
-        /* --- Modal --- */
-        .modal {
-            display: none; 
-            position: fixed; 
-            z-index: 1000; 
-            left: 0; top: 0; 
-            width: 100%; height: 100%; 
-            background-color: rgba(0,0,0,0.5); 
-            backdrop-filter: blur(4px);
-            opacity: 0; transition: opacity 0.3s;
-        }
-        .modal.show { opacity: 1; }
-        
-        .modal-content {
-            background-color: #fff;
-            margin: 3% auto;
-            width: 90%; max-width: 1000px;
-            border-radius: 20px;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-            transform: translateY(20px); transition: transform 0.3s;
-            display: flex; flex-direction: column;
-            max-height: 90vh;
-        }
-        .modal.show .modal-content { transform: translateY(0); }
-        
-        .modal-header { padding: 20px 30px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
-        .modal-body { padding: 30px; overflow-y: auto; }
-        .modal-footer { padding: 20px 30px; border-top: 1px solid #e5e7eb; text-align: right; background: #f9fafb; border-radius: 0 0 20px 20px; }
-        
-        .close-btn { font-size: 1.5em; color: #9ca3af; cursor: pointer; }
-        .close-btn:hover { color: #ef4444; }
-
-        #aiSummaryText { width: 100%; height: 300px; padding: 15px; border: 1px solid #d1d5db; border-radius: 10px; font-family: monospace; line-height: 1.6; resize: vertical; }
-
-        /* Loading */
-        .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; color: var(--text-muted); }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .controls-container { flex-direction: column; align-items: stretch; }
-            .btn-group { width: 100%; margin-top: 10px; }
-            .btn-group button { flex: 1; justify-content: center; }
-            .charts-grid { grid-template-columns: 1fr; }
-        }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+        .modal-content { background: white; margin: 5vh auto; width: 90%; max-width: 1100px; border-radius: 20px; display: flex; flex-direction: column; max-height: 90vh; animation: slideIn 0.3s; }
+        .modal-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 20px; overflow-y: auto; }
+        .modal-footer { padding: 15px 20px; border-top: 1px solid #eee; background: #f9fafb; text-align: right; border-radius: 0 0 20px 20px; }
+        .close-btn { cursor: pointer; font-size: 1.5rem; color: #999; }
+        textarea { width: 100%; height: 450px; padding: 15px; border-radius: 10px; border: 1px solid #ddd; font-family: monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+        @keyframes slideIn { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
 <body>
 
     <div class="dashboard-container">
-        <!-- Header -->
         <div class="header">
-            <h1><i class="fa-solid fa-chart-line"></i> Clinic Sales Dashboard</h1>
-            <p>ระบบวิเคราะห์ยอดขายและพฤติกรรมลูกค้าคลินิกความงาม</p>
+            <h1><i class="fa-solid fa-chart-line"></i> Clinic Sales Intelligence Pro</h1>
+            <p>ระบบวิเคราะห์ยอดขาย พฤติกรรมลูกค้า และประสิทธิภาพการจัดสรรบริการ</p>
         </div>
 
-        <!-- Controls -->
         <div class="controls-container">
-            <div class="input-group" style="flex: 2; min-width: 280px;">
-                <label for="fileInput"><i class="fa-regular fa-file-excel"></i> เลือกไฟล์ Excel ข้อมูลขาย</label>
+            <div class="input-group" style="flex: 1;">
+                <label><i class="fa-solid fa-file-excel"></i> เลือกไฟล์ข้อมูล</label>
                 <input type="file" id="fileInput" accept=".xlsx, .xls, .csv">
             </div>
-
+            <div class="input-group"><label>เริ่มต้น</label><input type="date" id="startDate" disabled></div>
+            <div class="input-group"><label>สิ้นสุด</label><input type="date" id="endDate" disabled></div>
             <div class="input-group">
-                <label>วันที่เริ่มต้น</label>
-                <input type="date" id="startDate" disabled>
-            </div>
-
-            <div class="input-group">
-                <label>วันที่สิ้นสุด</label>
-                <input type="date" id="endDate" disabled>
-            </div>
-
-            <div class="compare-wrapper">
+                <label>เปรียบเทียบ</label>
                 <input type="checkbox" id="compareToggle" disabled>
-                <label for="compareToggle" style="font-size: 0.9em; cursor: pointer;">เปรียบเทียบ</label>
             </div>
-
-            <div id="compareDateRange">
-                <div class="input-group">
-                    <label>เริ่ม (เทียบ)</label>
-                    <input type="date" id="compareStartDate" disabled>
-                </div>
-                <div class="input-group">
-                    <label>สิ้นสุด (เทียบ)</label>
-                    <input type="date" id="compareEndDate" disabled>
-                </div>
+            <div id="compareRange" style="display:none; gap: 15px;">
+                <div class="input-group"><label>เทียบจาก</label><input type="date" id="compareStartDate"></div>
+                <div class="input-group"><label>ถึงวันที่</label><input type="date" id="compareEndDate"></div>
             </div>
-
             <div class="btn-group">
-                <button class="btn-primary" id="filterButton" onclick="filterData()" disabled>
-                    <i class="fa-solid fa-filter"></i> กรองข้อมูล
-                </button>
-                <button class="btn-primary" id="exportPdfButton" onclick="exportToPDF()" disabled>
-                    <i class="fa-solid fa-file-pdf"></i> แคปรูป PDF
-                </button>
-                <button class="btn-magic" id="aiSummaryButton" onclick="generateAISummary()" disabled>
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> AI Summary
-                </button>
+                <button class="btn-primary" id="filterBtn" onclick="applyFilters()" disabled><i class="fa-solid fa-sync"></i> ประมวลผล</button>
+                <button class="btn-magic" id="aiBtn" onclick="showAIModal()" disabled><i class="fa-solid fa-wand-magic-sparkles"></i> AI Summary</button>
+                <button style="background:#10b981; color:white;" id="exportPdfBtn" onclick="exportPDF()" disabled><i class="fa-solid fa-file-pdf"></i> PDF หน้าเดียว</button>
             </div>
         </div>
 
-        <!-- Main Content -->
         <div class="main-content">
-            <!-- Initial State -->
-            <div id="initialState" class="initial-state">
-                <i class="fa-solid fa-cloud-arrow-up"></i>
-                <h2>กรุณาอัปโหลดไฟล์ข้อมูลเพื่อเริ่มต้น</h2>
-                <p>รองรับไฟล์ .xlsx, .xls, .csv</p>
+            <div id="initialState" style="text-align:center; padding: 80px; color: #9ca3af;">
+                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 3.5rem; margin-bottom: 20px;"></i>
+                <h2>อัปโหลดไฟล์ Excel เพื่อแสดงผลข้อมูลเชิงลึก</h2>
             </div>
 
-            <div id="dashboardContent" style="display: none;">
+            <div id="dashboardView" style="display: none;">
                 <!-- Section 1: Overview Stats -->
-                <div class="section-header">
-                    <div class="section-title"><i class="fa-solid fa-chart-pie"></i> ภาพรวมธุรกิจ</div>
-                </div>
-                
+                <div class="section-header"><h2><i class="fa-solid fa-chart-pie"></i> ภาพรวมธุรกิจ</h2></div>
                 <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalRevenue">-</div>
-                        <div class="stat-label">ยอดขายรวม (บาท)</div>
-                        <div class="icon-bg"><i class="fa-solid fa-baht-sign"></i></div>
-                    </div>
-
-                    <!-- NEW: Avg Revenue Per Head -->
-                     <div class="stat-card">
-                        <div class="stat-value" id="avgRevenuePerHead" style="color:var(--secondary-gradient)">-</div>
-                        <div class="stat-label">ยอดต่อหัว (บาท/คน)</div>
-                    </div>
-                    
-                    <!-- New Customer Revenue -->
-                    <div class="stat-card">
-                        <div class="stat-value" id="newCustomerSales" style="color:var(--primary-color)">-</div>
-                        <div class="stat-label">ยอดขายลูกค้าใหม่ (บาท)</div>
-                    </div>
-
-                    <!-- Existing Customer Revenue -->
-                    <div class="stat-card">
-                        <div class="stat-value" id="existingCustomerSales">-</div>
-                        <div class="stat-label">ยอดขายลูกค้าเก่า (บาท)</div>
-                    </div>
-
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalVisits">-</div>
-                        <div class="stat-label">จำนวน Visit (ครั้ง)</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalCustomers">-</div>
-                        <div class="stat-label">ลูกค้าทั้งหมด (คน)</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="newCustomers" style="color:var(--primary-color)">-</div>
-                        <div class="stat-label">ลูกค้าใหม่ (ลงทะเบียน)</div>
-                    </div>
-                    <!-- NEW: Existing Customers (Old Active) -->
-                    <div class="stat-card">
-                        <div class="stat-value" id="existingCustomers">-</div>
-                        <div class="stat-label">ลูกค้าเก่า (คน)</div>
-                    </div>
-
-                    <div class="stat-card">
-                        <div class="stat-value" id="newPayingCustomers" style="color:var(--accent-color)">-</div>
-                        <div class="stat-label">ลูกค้าใหม่ที่มียอดชำระ (คน)</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="payingCustomers">-</div>
-                        <div class="stat-label">ลูกค้าที่มียอดชำระ (คน)</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="repeatRate">-</div>
-                        <div class="stat-label">อัตราลูกค้าเดิม (Repeat Rate)</div>
-                    </div>
+                    <div class="stat-card"><div class="stat-value" id="statRevenue">-</div><div class="stat-label">ยอดขายรวม (บาท)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="statAvgHead" style="color:var(--secondary-gradient)">-</div><div class="stat-label">ยอดต่อหัว (บาท/คน)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="statNewSales" style="color:var(--primary-color)">-</div><div class="stat-label">ยอดขายลูกค้าใหม่ (บาท)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="statOldSales">-</div><div class="stat-label">ยอดขายลูกค้าเก่า (บาท)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="statVisits">-</div><div class="stat-label">จำนวน Visit (ครั้ง)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="statUniqueCust">-</div><div class="stat-label">ลูกค้าทั้งหมด (คน)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="statNewReg" style="color:var(--primary-color)">-</div><div class="stat-label">ลูกค้าใหม่ (ลงทะเบียน)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="statOldCust">-</div><div class="stat-label">ลูกค้าเก่า (คน)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="statNewPaying" style="color:var(--accent-color)">-</div><div class="stat-label">ลูกค้าใหม่จ่ายเงิน (คน)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="statTotalPaying">-</div><div class="stat-label">ลูกค้าที่จ่ายเงิน (คน)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="statRepeatRate">-</div><div class="stat-label">อัตราลูกค้าเดิม (Repeat)</div></div>
                 </div>
 
-                <!-- Section 2: Charts -->
-                <div class="section-header">
-                    <div class="section-title"><i class="fa-solid fa-chart-area"></i> การวิเคราะห์ข้อมูล</div>
-                </div>
+                <!-- Section 2: Segmentation -->
+                <h3 style="margin-bottom:15px;"><i class="fa-solid fa-tags"></i> แบ่งกลุ่มลูกค้าตามยอดชำระ</h3>
+                <div class="segment-grid" id="priceSegmentsContainer"></div>
 
+                <!-- Section 3: Charts -->
+                <div class="section-header"><h2><i class="fa-solid fa-chart-area"></i> การวิเคราะห์เชิงลึก</h2></div>
                 <div class="charts-grid">
+                    <div class="chart-box"><h4>📈 ยอดขายรายวัน (เทียบช่วงเวลา)</h4><canvas id="dailyChart"></canvas></div>
+                    <div class="chart-box"><h4>📅 ยอดขายรายเดือน</h4><canvas id="monthlyChart"></canvas></div>
+                    <div class="chart-box"><h4>📊 Performance Matrix (Top 10 Items)</h4><canvas id="performanceMatrixChart"></canvas></div>
                     <div class="chart-box">
-                        <h3>📈 ยอดขายรายวัน</h3>
-                        <canvas id="dailySalesChart"></canvas>
-                    </div>
-                    <div class="chart-box">
-                        <h3>🛍️ สัดส่วนยอดขายตามหมวดหมู่</h3>
-                        <canvas id="categoryChart"></canvas>
-                    </div>
-                    <div class="chart-box">
-                        <h3>📅 ยอดขายรายเดือน</h3>
-                        <canvas id="monthlySalesChart"></canvas>
-                    </div>
-                    <div class="chart-box">
-                        <h3>🎯 RFM Analysis (กลุ่มลูกค้า)</h3>
-                        <canvas id="recencyFrequencyPlot"></canvas>
-                    </div>
-                    <div class="chart-box">
-                        <h3>📊 Performance Matrix (Top 10 Items)</h3>
-                        <canvas id="performanceMatrixChart"></canvas>
-                    </div>
-                     <div class="chart-box">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                            <h3 style="margin:0;">🔄 ความถี่การใช้บริการ</h3>
-                            <button class="btn-sm" onclick="exportFrequencyData()">
-                                <i class="fa-solid fa-list-ol"></i> สรุปข้อมูล
-                            </button>
+                            <h4 style="margin:0;">🔄 ความถี่การใช้บริการ (คลิกที่แท่งเพื่อดูรายชื่อ)</h4>
+                            <button class="btn-sm" onclick="showFrequencySummary()"><i class="fa-solid fa-list-ol"></i> ตารางสรุป</button>
                         </div>
-                        <canvas id="frequencyDistributionChart"></canvas>
+                        <canvas id="frequencyChart"></canvas>
                     </div>
                 </div>
 
-                <!-- Section 3: RFM Insights -->
-                <div class="section-header">
-                    <div class="section-title"><i class="fa-solid fa-users-gear"></i> กลยุทธ์ลูกค้า (RFM Insight)</div>
-                </div>
-                <div id="rfmInsightsContainer"></div>
-
-                <!-- Section 4: Tables -->
-                <div class="section-header" style="margin-top: 40px;">
-                    <div class="section-title"><i class="fa-solid fa-table-list"></i> รายงานข้อมูลละเอียด</div>
-                </div>
-
+                <!-- Section 4: Detailed Reports -->
+                <div class="section-header"><h2><i class="fa-solid fa-file-lines"></i> รายงานข้อมูลละเอียด</h2></div>
+                
                 <div class="table-wrapper">
-                    <div class="table-header">
-                        <h3>📊 ยอดขายแยกตามหมวดหมู่</h3>
-                    </div>
+                    <div class="table-header"><h3>📊 ยอดขายแยกตามหมวดหมู่ (คัดกรองละเอียด)</h3></div>
                     <div class="table-scroll">
-                        <table id="categoryStatsTable">
+                        <table id="categoryTable">
                             <thead>
-                                <tr>
+                                <tr id="categoryTableHead">
                                     <th>หมวดหมู่</th>
-                                    <th>รายการสินค้า/บริการ (Items)</th> <!-- New Column Header -->
-                                    <th>HN ไม่ซ้ำ</th>
-                                    <th>HN ที่จ่าย</th>
-                                    <th>ยอดรวม (บาท)</th>
-                                    <th>กลับมาซ้ำ</th>
+                                    <th>ตัวอย่างสินค้า (Items)</th>
+                                    <th style="text-align:center">HN ไม่ซ้ำ</th>
+                                    <th style="text-align:right">ยอดรวม</th>
+                                    <th style="text-align:center">กลับมาซ้ำ</th>
+                                    <th style="text-align:center">Drilldown</th>
                                 </tr>
                             </thead>
                             <tbody id="categoryStatsBody"></tbody>
@@ -606,289 +227,296 @@
                 </div>
 
                 <div class="table-wrapper">
-                    <div class="table-header">
-                        <h3>🏆 10 อันดับบริการยอดฮิต</h3>
-                    </div>
+                    <div class="table-header"><h3>🏆 10 อันดับบริการยอดฮิต</h3></div>
                     <div class="table-scroll">
                         <table>
-                            <thead><tr><th>อันดับ</th><th>รายการ</th><th>ยอดขาย (บาท)</th><th>จำนวนขาย</th><th>ราคาเฉลี่ย</th><th>ลูกค้าไม่ซ้ำ</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th style="text-align:center">อันดับ</th>
+                                    <th>รายการ</th>
+                                    <th style="text-align:right">ยอดขาย (บาท)</th>
+                                    <th style="text-align:center">จำนวนขาย</th>
+                                    <th style="text-align:right">ราคาเฉลี่ย</th>
+                                    <th style="text-align:center">ลูกค้าไม่ซ้ำ</th>
+                                </tr>
+                            </thead>
                             <tbody id="performanceMatrixBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                 <div class="table-wrapper">
-                    <div class="table-header">
-                        <h3>💎 Top 20 ลูกค้าที่มียอดใช้จ่ายสูงสุด</h3>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead><tr><th>อันดับ</th><th>HN</th><th>ชื่อ-สกุล</th><th>เบอร์โทร</th><th>รายการที่ซื้อ</th><th>ยอดรวม (บาท)</th></tr></thead>
-                            <tbody id="topSpendersBody"></tbody>
                         </table>
                     </div>
                 </div>
 
                 <div class="table-wrapper">
                     <div class="table-header">
-                        <h3>🔄 รายชื่อลูกค้าเก่า (Repeat Customers)</h3>
+                        <h3>👥 รายละเอียดลูกค้าทั้งหมด (Filter by Segment)</h3>
+                        <select id="segmentFilter" onchange="renderDetailsTable()" style="padding:5px 10px; border-radius:5px; border:1px solid #ddd;">
+                            <option value="all">แสดงทั้งหมด</option>
+                        </select>
                     </div>
                     <div class="table-scroll">
                         <table>
-                            <thead><tr><th>HN</th><th>ชื่อ-สกุล</th><th>เบอร์โทร</th><th>ครั้ง</th><th>วัน</th><th>ยอดรวม</th><th>ล่าสุด</th></tr></thead>
-                            <tbody id="repeatCustomersBody"></tbody>
+                            <thead><tr><th>HN</th><th>ชื่อ-สกุล / เบอร์โทร</th><th>กลุ่มราคา</th><th style="text-align:right">ยอดรวม (บาท)</th><th>ล่าสุด</th></tr></thead>
+                            <tbody id="detailsTableBody"></tbody>
                         </table>
                     </div>
                 </div>
-
-            </div> <!-- End Dashboard Content -->
-        </div>
-    </div>
-
-    <!-- Customer Modal -->
-    <div id="customerModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitle" style="font-size:1.3em;">รายละเอียด</h2>
-                <span class="close-btn" onclick="closeModal('customerModal')">&times;</span>
-            </div>
-            <div class="modal-body" id="modalBody">
-                <!-- Content injected via JS -->
             </div>
         </div>
     </div>
 
-    <!-- AI Summary Modal -->
-    <div id="aiSummaryModal" class="modal">
+    <!-- Modals -->
+    <div id="aiModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2 style="font-size:1.3em;"><i class="fa-brands fa-google"></i> เตรียมข้อมูลสำหรับ AI (Gemini)</h2>
-                <span class="close-btn" onclick="closeModal('aiSummaryModal')">&times;</span>
-            </div>
+            <div class="modal-header"><h3><i class="fa-solid fa-wand-magic-sparkles"></i> AI Strategic Prompt (Detailed Summary)</h3><span class="close-btn" onclick="closeModal('aiModal')">&times;</span></div>
             <div class="modal-body">
-                <p style="margin-bottom:10px; color:var(--text-muted);">คัดลอกข้อความด้านล่าง แล้วนำไปวางใน Gemini/ChatGPT เพื่อขอคำแนะนำเชิงกลยุทธ์</p>
-                <textarea id="aiSummaryText" readonly></textarea>
+                <p style="margin-bottom:10px; font-size:14px; color:#555;">คัดลอกข้อมูลสรุปด้านล่าง นำไปวางในแชทบอท (Gemini/ChatGPT) เพื่อวิเคราะห์กลยุทธ์</p>
+                <textarea id="aiText" readonly></textarea>
             </div>
-            <div class="modal-footer">
-                <button class="btn-primary" onclick="copyAIPrompt(this)">
-                    <i class="fa-regular fa-copy"></i> คัดลอกข้อมูล
-                </button>
-            </div>
+            <div class="modal-footer"><button class="btn-primary" onclick="copyToClipboard()"><i class="fa-regular fa-copy"></i> คัดลอกข้อมูลทั้งหมด</button></div>
         </div>
     </div>
+    
+    <div id="listModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3 id="listModalTitle"></h3><span class="close-btn" onclick="closeModal('listModal')">&times;</span></div>
+            <div class="modal-body" id="listModalBody"></div>
+        </div>
+    </div>
+
+    <div id="custModal" class="modal">
+        <div class="modal-content" style="max-width:800px;">
+            <div class="modal-header"><h3 id="custModalTitle"></h3><span class="close-btn" onclick="closeModal('custModal')">&times;</span></div>
+            <div class="modal-body" id="custModalBody"></div>
+        </div>
+    </div>
+
+    <div id="freqModal" class="modal"><div class="modal-content" style="max-width:500px;"><div class="modal-header"><h3>สรุปความถี่การใช้บริการ</h3><span class="close-btn" onclick="closeModal('freqModal')">&times;</span></div><div class="modal-body" id="freqModalBody"></div></div></div>
 
     <script>
-        // --- 1. CONFIGURATION & DEFAULTS ---
         Chart.defaults.font.family = "'Prompt', sans-serif";
-        Chart.defaults.color = '#6b7280';
-        Chart.defaults.scale.grid.color = '#f3f4f6';
-        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(17, 24, 39, 0.9)';
-        Chart.defaults.plugins.tooltip.padding = 12;
-        Chart.defaults.plugins.tooltip.cornerRadius = 8;
+        let rawData = [], filteredData = [], compareData = [], processedCustomers = [];
+        let charts = {};
         
-        // --- 2. GLOBAL VARIABLES ---
-        let rawData = [], filteredData = [], compareFilteredData = [];
-        let charts = {}, currentModalCustomers = [], rfmSegmentData = {};
-        
-        // DOM Elements
-        const els = {
-            fileInput: document.getElementById('fileInput'),
-            startDate: document.getElementById('startDate'),
-            endDate: document.getElementById('endDate'),
-            filterBtn: document.getElementById('filterButton'),
-            compareToggle: document.getElementById('compareToggle'),
-            compareRange: document.getElementById('compareDateRange'),
-            compareStart: document.getElementById('compareStartDate'),
-            compareEnd: document.getElementById('compareEndDate'),
-            aiBtn: document.getElementById('aiSummaryButton'),
-            exportPdfBtn: document.getElementById('exportPdfButton'), 
-            initialState: document.getElementById('initialState'),
-            dashboardContent: document.getElementById('dashboardContent')
-        };
+        const PRICE_RANGES = [
+            { id: 'r0', label: '0 - 2k', limit: 2000, color: '#94a3b8' },
+            { id: 'r1', label: '2k - 5k', limit: 5000, color: '#64748b' },
+            { id: 'r2', label: '5k - 10k', limit: 10000, color: '#3b82f6' },
+            { id: 'r3', label: '10k - 20k', limit: 20000, color: '#10b981' },
+            { id: 'r4', label: '20k - 50k', limit: 50000, color: '#f59e0b' },
+            { id: 'r5', label: '50k - 100k', limit: 100000, color: '#ea580c' },
+            { id: 'r6', label: '100k UP', limit: Infinity, color: '#be123c' }
+        ];
 
-        // --- 3. INITIALIZATION ---
-        document.addEventListener('DOMContentLoaded', () => {
-            setDefaultDates();
-            setupEventListeners();
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+        document.getElementById('compareToggle').addEventListener('change', function() {
+            document.getElementById('compareRange').style.display = this.checked ? 'flex' : 'none';
         });
 
-        function setDefaultDates() {
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            els.endDate.value = `${year}-${month}-${day}`;
-            els.startDate.value = `${year}-${month}-01`;
-        }
-
-        function setupEventListeners() {
-            els.fileInput.addEventListener('change', handleFile);
-            els.compareToggle.addEventListener('change', () => {
-                els.compareRange.style.display = els.compareToggle.checked ? 'flex' : 'none';
-                if (!els.compareToggle.checked) filterData(); // Re-filter if turned off
-            });
-            // Click outside modal
-            window.onclick = (e) => {
-                if (e.target.classList.contains('modal')) closeModal(e.target.id);
-            };
-        }
-
-        // --- 4. DATA PROCESSING ---
-        function handleFile(e) {
+        function handleFileUpload(e) {
             const file = e.target.files[0];
-            if (!file) return;
-
+            if(!file) return;
             const reader = new FileReader();
-            reader.onload = (event) => {
-                processData(new Uint8Array(event.target.result));
-            };
-            reader.onerror = () => alert("เกิดข้อผิดพลาดในการอ่านไฟล์");
-            
-            // Show loading UI
-            els.initialState.innerHTML = `<div class="loading"><div class="spinner"></div><p>กำลังประมวลผลข้อมูล...</p></div>`;
-            reader.readAsArrayBuffer(file);
-        }
-
-        function processData(buffer) {
-            try {
-                const workbook = XLSX.read(buffer, { type: 'array' });
-                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: false });
-
-                if (jsonData.length === 0) throw new Error('ไม่พบข้อมูล');
-
-                rawData = jsonData.map(row => {
-                    if (!row) return null;
-                    // Clean amount
-                    let amt = 0;
-                    if (row['ยอดชำระ']) {
-                        if (typeof row['ยอดชำระ'] === 'number') amt = row['ยอดชำระ'];
-                        else amt = parseFloat(row['ยอดชำระ'].toString().replace(/[,\s]/g, '')) || 0;
-                    }
-                    // Clean phone
-                    let phone = row['เบอร์โทร'] || row['โทรศัพท์'] || row['Phone'] || row['Tel'] || '-';
-                    
-                    // Normalize Reg Date Key (Try common names)
-                    let regDateStr = row['วันลงทะเบียน'] || row['Register Date'] || row['RegDate'] || null;
-
+            reader.onload = function(evt) {
+                const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
+                rawData = json.map(row => {
+                    let amt = row['ยอดชำระ'] ? (typeof row['ยอดชำระ'] === 'number' ? row['ยอดชำระ'] : parseFloat(row['ยอดชำระ'].toString().replace(/[,\s]/g, '')) || 0) : 0;
+                    let regDate = row['วันลงทะเบียน'] || row['Register Date'] || row['RegDate'];
                     return { 
                         ...row, 
                         'ยอดชำระ': amt, 
-                        'เบอร์โทร': String(phone),
-                        '__regDate': regDateStr ? parseThaiDate(regDateStr) : null // Pre-parse reg date
+                        '__date': parseThaiDate(row['วันที่ขาย']), 
+                        '__regDate': parseThaiDate(regDate) 
                     };
-                }).filter(r => r !== null);
+                }).filter(r => r.__date);
 
-                // Auto-set Date Range from data
-                let minDate = null, maxDate = null;
-                rawData.forEach(row => {
-                    const d = parseThaiDate(row['วันที่ขาย']);
-                    if(d) {
-                        if(!minDate || d < minDate) minDate = d;
-                        if(!maxDate || d > maxDate) maxDate = d;
-                    }
-                });
-                
-                if(minDate && maxDate) {
-                    els.startDate.value = formatDateToInput(minDate);
-                    els.endDate.value = formatDateToInput(maxDate);
+                if (rawData.length > 0) {
+                    const dates = rawData.map(r => r.__date);
+                    const maxDate = new Date(Math.max(...dates));
+                    const minDate = new Date(Math.min(...dates));
+                    document.getElementById('startDate').value = minDate.toISOString().split('T')[0];
+                    document.getElementById('endDate').value = maxDate.toISOString().split('T')[0];
+                    
+                    const prevStart = new Date(minDate); prevStart.setMonth(prevStart.getMonth() - 1);
+                    const prevEnd = new Date(maxDate); prevEnd.setMonth(prevEnd.getMonth() - 1);
+                    document.getElementById('compareStartDate').value = prevStart.toISOString().split('T')[0];
+                    document.getElementById('compareEndDate').value = prevEnd.toISOString().split('T')[0];
                 }
-
-                // Enable UI
-                els.initialState.style.display = 'none';
-                els.dashboardContent.style.display = 'block';
-                [els.startDate, els.endDate, els.filterBtn, els.compareToggle, els.compareStart, els.compareEnd, els.aiBtn, els.exportPdfBtn].forEach(el => el.disabled = false);
-
-                filterData();
-
-            } catch (err) {
-                console.error(err);
-                els.initialState.innerHTML = `<div style="color:red"><i class="fa-solid fa-triangle-exclamation"></i><br>เกิดข้อผิดพลาด: ${err.message}</div>`;
-            }
+                ['startDate', 'endDate', 'compareToggle', 'filterBtn', 'aiBtn', 'exportPdfBtn'].forEach(id => document.getElementById(id).disabled = false);
+                document.getElementById('initialState').style.display = 'none';
+                document.getElementById('dashboardView').style.display = 'block';
+                applyFilters();
+            };
+            reader.readAsArrayBuffer(file);
         }
 
-        function filterData() {
-            const start = parseInputDate(els.startDate.value);
-            const end = parseInputDate(els.endDate.value, true); // End of day
+        function applyFilters() {
+            const startStr = document.getElementById('startDate').value;
+            const endStr = document.getElementById('endDate').value;
+            if(!startStr || !endStr) return;
 
-            if (!start || !end) return alert("กรุณาระบุวันที่ให้ถูกต้อง");
-
-            filteredData = rawData.filter(row => {
-                const d = parseThaiDate(row['วันที่ขาย']);
-                return d && d >= start && d <= end;
-            });
-
-            compareFilteredData = [];
-            if (els.compareToggle.checked) {
-                const cStart = parseInputDate(els.compareStart.value);
-                const cEnd = parseInputDate(els.compareEnd.value, true);
-                if (cStart && cEnd) {
-                    compareFilteredData = rawData.filter(row => {
-                        const d = parseThaiDate(row['วันที่ขาย']);
-                        return d && d >= cStart && d <= cEnd;
-                    });
+            const start = new Date(startStr);
+            const end = new Date(endStr);
+            end.setHours(23,59,59);
+            filteredData = rawData.filter(r => r.__date >= start && r.__date <= end);
+            
+            compareData = [];
+            if(document.getElementById('compareToggle').checked) {
+                const cStartStr = document.getElementById('compareStartDate').value;
+                const cEndStr = document.getElementById('compareEndDate').value;
+                if(cStartStr && cEndStr) {
+                    const cStart = new Date(cStartStr);
+                    const cEnd = new Date(cEndStr);
+                    cEnd.setHours(23,59,59);
+                    compareData = rawData.filter(r => r.__date >= cStart && r.__date <= cEnd);
                 }
             }
-
             updateDashboard();
         }
 
-        // --- 5. LOGIC HELPERS ---
-        function parseThaiDate(str) {
-            if (!str || typeof str !== 'string') return null;
-            try {
-                const parts = str.trim().split(/[\/\-]/); // Split by / or -
-                if (parts.length !== 3) return null;
-                // Assuming DD/MM/YYYY
-                let d = parseInt(parts[0]), m = parseInt(parts[1]) - 1, y = parseInt(parts[2]);
-                if (y > 2500) y -= 543; // Convert Thai Year
-                
-                // Safety check for valid date
-                const dateObj = new Date(y, m, d);
-                if (dateObj.getFullYear() === y && dateObj.getMonth() === m && dateObj.getDate() === d) {
-                    return dateObj;
+        function updateDashboard() {
+            processCustomerData();
+            renderStats();
+            renderSegments();
+            renderCharts();
+            updateCategoryStatsTable();
+            updatePerformanceMatrix();
+            renderDetailsTable();
+            populateSegmentFilter();
+        }
+
+        function processCustomerData() {
+            const start = new Date(document.getElementById('startDate').value);
+            const end = new Date(document.getElementById('endDate').value);
+            end.setHours(23,59,59);
+            const hnMap = {};
+            filteredData.forEach(r => {
+                if(!r.HN) return;
+                if(!hnMap[r.HN]) {
+                    hnMap[r.HN] = { 
+                        hn: r.HN, 
+                        name: r['ชื่อ-สกุล'] || '-', 
+                        phone: r['เบอร์โทร'] || r['โทรศัพท์'] || '-', 
+                        total: 0, 
+                        visits: new Set(), 
+                        items: new Set(), 
+                        lastDate: r.__date, 
+                        isNew: (r.__regDate && r.__regDate >= start && r.__regDate <= end) 
+                    };
                 }
-                return null;
-            } catch (e) { return null; }
+                hnMap[r.HN].total += r['ยอดชำระ'];
+                hnMap[r.HN].visits.add(r['วันที่ขาย']);
+                if(r['รายการ']) hnMap[r.HN].items.add(r['รายการ']);
+                if(r.__date > hnMap[r.HN].lastDate) hnMap[r.HN].lastDate = r.__date;
+            });
+            processedCustomers = Object.values(hnMap).map(c => {
+                const range = PRICE_RANGES.find(r => c.total <= r.limit) || PRICE_RANGES[PRICE_RANGES.length - 1];
+                return { ...c, segmentLabel: range.label, segmentColor: range.color };
+            }).sort((a,b) => b.total - a.total);
         }
 
-        function parseInputDate(val, isEndOfDay = false) {
-            if (!val) return null;
-            const d = new Date(val);
-            if (isEndOfDay) d.setHours(23, 59, 59, 999);
-            else d.setHours(0,0,0,0);
-            return d;
+        function calculateMetrics(dataset, customers) {
+            const rev = dataset.reduce((s,r) => s + r['ยอดชำระ'], 0);
+            const visits = new Set(dataset.map(r => r.HN + r['วันที่ขาย'])).size;
+            const unique = customers.length;
+            const payingCustomers = customers.filter(c => c.total > 0);
+            const newReg = customers.filter(c => c.isNew);
+            const newSales = newReg.reduce((s,c) => s + c.total, 0);
+            const repeat = customers.filter(c => c.visits.size > 1).length;
+            
+            return {
+                rev, visits, unique, payingCount: payingCustomers.length,
+                newSales, oldSales: rev - newSales, newReg: newReg.length,
+                oldCust: unique - newReg.length,
+                newPaying: newReg.filter(c => c.total > 0).length,
+                repeatRate: unique ? (repeat / unique) * 100 : 0,
+                avgHead: payingCustomers.length ? rev / payingCustomers.length : 0
+            };
         }
 
-        function formatDateToInput(date) {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
+        function renderStats() {
+            const start = new Date(document.getElementById('startDate').value);
+            const end = new Date(document.getElementById('endDate').value);
+            const cur = calculateMetrics(filteredData, processedCustomers);
+            
+            let prev = null;
+            if(document.getElementById('compareToggle').checked && compareData.length > 0) {
+                const cStart = new Date(document.getElementById('compareStartDate').value);
+                const cEnd = new Date(document.getElementById('compareEndDate').value);
+                const compareHnMap = {};
+                compareData.forEach(r => {
+                    if(!r.HN) return;
+                    if(!compareHnMap[r.HN]) {
+                        compareHnMap[r.HN] = { hn: r.HN, total: 0, visits: new Set(), isNew: (r.__regDate && r.__regDate >= cStart && r.__regDate <= cEnd) };
+                    }
+                    compareHnMap[r.HN].total += r['ยอดชำระ'];
+                    compareHnMap[r.HN].visits.add(r['วันที่ขาย']);
+                });
+                prev = calculateMetrics(compareData, Object.values(compareHnMap));
+            }
+
+            const format = (id, val, pVal, isMoney = true, isPct = false) => {
+                const el = document.getElementById(id);
+                if(!el) return;
+                let txt = val.toLocaleString(undefined, {minimumFractionDigits: isMoney?2:0, maximumFractionDigits: isMoney?2:1});
+                if(isPct) txt += '%';
+                
+                let badge = '';
+                if(pVal !== null && pVal !== undefined) {
+                    const diff = val - pVal;
+                    const pct = pVal === 0 ? (val > 0 ? 100 : 0) : (diff / pVal) * 100;
+                    const cls = diff > 0 ? 'pos' : (diff < 0 ? 'neg' : 'neu');
+                    const icon = diff > 0 ? 'fa-caret-up' : (diff < 0 ? 'fa-caret-down' : 'fa-minus');
+                    
+                    const diffTxt = (diff >= 0 ? '+' : '') + diff.toLocaleString(undefined, {
+                        minimumFractionDigits: isMoney ? 2 : 0,
+                        maximumFractionDigits: isMoney ? 2 : 0
+                    });
+
+                    badge = `<span class="badge ${cls}" title="ต่างกัน ${diffTxt}">
+                                <i class="fa-solid ${icon}"></i> ${diffTxt} (${Math.abs(pct).toFixed(1)}%)
+                             </span>`;
+                }
+                el.innerHTML = `<div>${txt}</div>${badge}`;
+            };
+
+            format('statRevenue', cur.rev, prev?.rev);
+            format('statAvgHead', cur.avgHead, prev?.avgHead);
+            format('statNewSales', cur.newSales, prev?.newSales);
+            format('statOldSales', cur.oldSales, prev?.oldSales);
+            format('statVisits', cur.visits, prev?.visits, false);
+            format('statUniqueCust', cur.unique, prev?.unique, false);
+            format('statNewReg', cur.newReg, prev?.newReg, false);
+            format('statOldCust', cur.oldCust, prev?.oldCust, false);
+            format('statNewPaying', cur.newPaying, prev?.newPaying, false);
+            format('statTotalPaying', cur.payingCount, prev?.payingCount, false);
+            format('statRepeatRate', cur.repeatRate, prev?.repeatRate, false, true);
         }
 
+        function renderSegments() {
+            const container = document.getElementById('priceSegmentsContainer');
+            if(!container) return;
+            container.innerHTML = PRICE_RANGES.map(range => {
+                const members = processedCustomers.filter(c => c.segmentLabel === range.label);
+                const sum = members.reduce((s, c) => s + c.total, 0);
+                return `<div class="segment-card" style="border-left-color: ${range.color};" onclick="filterBySegment('${range.label}')">
+                    <div class="seg-label"><span>${range.label}</span><span>${((members.length / (processedCustomers.length || 1)) * 100).toFixed(1)}%</span></div>
+                    <div class="seg-val">${members.length.toLocaleString()} คน</div>
+                    <div style="font-size:0.75rem; color:#999">ยอดรวม: ${sum.toLocaleString()} บ.</div>
+                </div>`;
+            }).join('');
+        }
+
+        // --- Permanent High Priority Category Logic (Refined) ---
         function getCategoryForRow(row) {
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ';
 
             // --- 1. Specific / New Requests (High Priority) ---
-            
-            // Aesthe Fill (Supports both 'AestheFill' and 'Aesthe Fill')
             if (name.includes('aesthefill') || name.includes('aesthe fill')) return 'Aesthe Fill'; 
-            
-            // Profhilo
             if (name.includes('profhilo')) return 'Profhilo';
-            
-            // Melasma
             if (name.includes('melasma')) return 'Melasma';
-            
-            // Q Switch
             if (name.includes('q switch') || name.includes('q-switch')) return 'Q Switch';
-            
-            // BSAM
             if (name.includes('bsam')) return 'BSAM';
-            
-            // Keloid
             if (name.includes('keloid')) return 'Keloid';
 
             if (name.includes('morpheus')) return 'Morpheus8'; 
@@ -901,1080 +529,321 @@
             if (name.includes('rejuran')) return 'Rejuran';
             if (name.includes('juvelook')) return 'Juvelook';
             if (name.includes('subsicion') || name.includes('subcision')) return 'Subsicion';
-            
-            // Antidark
             if (name.includes('antidark')) return 'Antidark';
 
-            // New Categories requested
             if (name.includes('helios')) return 'Helios';
             if (name.includes('vella')) return 'Vella';
             if (name.includes('viva')) return 'Viva';
-            
-            // Virgin Repair (includes เก้าอี้มหัสจรรย์)
             if (name.includes('virgin repair') || name.includes('vergin repair') || name.includes('เก้าอี้มหัสจรรย์') || name.includes('เก้าอี้มหัศจรรย์')) return 'Virgin Repair';
             
             if (name.includes('body s')) return 'Body S';
             if (name.includes('g5')) return 'G5';
             if (name.includes('transamin')) return 'Transamin';
-            
-            // RF (Be careful with matches, but usually safe in this context)
             if (name.includes('rf')) return 'RF';
-
-            // Vitamin (Specific request for GC 50000, Vitc)
             if (name.includes('gc 50000') || name.includes('vitc')) return 'Vitamin';
 
             // --- 2. Meso Grouping ---
-            // Added Guna Collagen, Derma care, reborn glass skin, Seenskin, SSDN, L'ebss
             if (name.includes('chanel') || name.includes("l'ebss") || name.includes('inno') || name.includes('sakura') || name.includes('meso') || name.includes('made') || name.includes('ฉีดหน้า') || name.includes('prp') || name.includes('guna collagen') || name.includes('derma care') || name.includes('reborn glass skin') || name.includes('seenskin') || name.includes('ssdn')) return 'Meso';
 
-            // --- 3. Drip Grouping (Updated) ---
-            // Added Healthy Bright, IV Daimond, Vit-C
+            // --- 3. Drip Grouping ---
             if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || name.includes('vit-c')) return 'Drip';
 
             // --- 4. Existing Categories ---
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
-            
-            // Ultraformer (Added 'ultra former')
             if (name.includes('ultraformer') || name.includes('ultra fromer') || name.includes('ultra former')) return 'Ultraformer';
-            
             if (name.includes('co2')) return 'Co2';
-            
-            // Slimnow: Removed 'g5' and 'rf' as they have their own categories now
             if (name.includes('slimnow') || name.includes('peptide') || name.includes('คุมหิว')) return 'Slimnow';
-            
-            // Diode Laser (Added IPL)
             if (name.includes('dio') || name.includes('ipl')) return 'Diode laser';
-            
             if (name.includes('botox') || name.includes('โบ')) return 'Botox';
             if (name.includes('filler') || name.includes('ฟิลเลอร์')) return 'Filler';
             if (name.includes('hifu') || name.includes('ulthera') || name.includes('lifting')) return 'HIFU / Lifting';
-            
-            // Picolaser (Removed IPL check which was previously here: || name.includes('ipl'))
             if (name.includes('laser') || name.includes('pico') || name.includes('เลเซอร์')) return 'Picolaser';
-            
             if (name.includes('hair') || name.includes('กำจัดขน')) return 'Hair Removal';
             if (name.includes('fat') || name.includes('สลายไขมัน')) return 'Body / Fat';
             if (name.includes('acne') || name.includes('สิว')) return 'Acne Treatment';
             if (name.includes('ยา') || name.includes('medicine') || name.includes('drug') || name.includes('pharmacy') || name.includes('เวชภัณฑ์')) return 'Pharmacy / Medicine';
-            
-            // Treatment (Added Mark Collagen)
             if (name.includes('treatment') || name.includes('ทรีทเมนท์') || name.includes('นวด') || name.includes('spa') || name.includes('mark collagen')) return 'Treatment';
-            
             if (name.includes('ค่าแพทย์') || name.includes('df') || name.includes('doctor') || name.includes('consult') || name.includes('บริการ') || name.includes('service')) return 'Consultation / Service';
             if (name.includes('product') || name.includes('cream') || name.includes('gel') || name.includes('foam') || name.includes('sunscreen') || name.includes('set')) return 'Products / Skincare';
-            
+
             return 'General / Others';
         }
 
-        // --- 6. UPDATE DASHBOARD UI ---
-        function updateDashboard() {
-            updateStats();
-            updateCharts();
-            
-            // RFM Calculation
-            rfmSegmentData = calculateRFMSegments();
-            updateRecencyFrequencyPlot(rfmSegmentData);
-            updateRFMInsights(rfmSegmentData);
-            
-            // Tables
-            updateCategoryStatsTable();
-            updatePerformanceMatrix();
-            updateRepeatCustomersTable();
-            updateTopSpendersTable();
-        }
-
-        // --- 7. STATS & COMPARISON ---
-        function updateStats() {
-            const start = parseInputDate(els.startDate.value);
-            const end = parseInputDate(els.endDate.value, true);
-
-            const calc = (data, isCompare = false) => {
-                if (!data.length) return { rev: 0, visit: 0, cust: 0, payCust: 0, repeat: 0, rate: 0, newReg: 0, newPayingReg: 0, newSales: 0, existingSales: 0, existingCust: 0, avgHead: 0 };
-                
-                const uniqueHN = new Set(data.map(r => r.HN).filter(x => x));
-                const payHN = new Set(data.filter(r => r['ยอดชำระ'] > 0).map(r => r.HN));
-                const rev = data.reduce((s, r) => s + (r['ยอดชำระ'] || 0), 0);
-                
-                // Visits
-                const visits = data.reduce((acc, r) => {
-                    if (r.HN && r['วันที่ขาย']) {
-                        if (!acc[r.HN]) acc[r.HN] = new Set();
-                        acc[r.HN].add(r['วันที่ขาย']);
-                    }
-                    return acc;
-                }, {});
-                const totalVisits = Object.values(visits).reduce((s, v) => s + v.size, 0);
-                const repeatCount = Object.values(visits).filter(v => v.size > 1).length;
-                const rate = uniqueHN.size ? (repeatCount / uniqueHN.size) * 100 : 0;
-                
-                // NEW CUSTOMER & REVENUE LOGIC
-                let newRegCount = 0;
-                let newPayingRegCount = 0;
-                let newCustomerSales = 0;
-                let existingCustomerSales = 0;
-
-                // Define Range for "New Customer" Definition (Registered within this period)
-                let rangeStart = start;
-                let rangeEnd = end;
-                if (isCompare) {
-                    rangeStart = parseInputDate(els.compareStart.value);
-                    rangeEnd = parseInputDate(els.compareEnd.value, true);
-                }
-
-                // Used to track counted new HNs to avoid double counting in loop
-                const checkedHN = new Set();
-
-                data.forEach(r => {
-                    const amt = r['ยอดชำระ'] || 0;
-                    
-                    // Logic: Is this transaction from a "New Customer"?
-                    let isNewCustomerTransaction = false;
-
-                    if (r.HN && r.__regDate && rangeStart && rangeEnd) {
-                        if (r.__regDate >= rangeStart && r.__regDate <= rangeEnd) {
-                            isNewCustomerTransaction = true;
-                        }
-                    }
-
-                    // Sum Sales
-                    if (isNewCustomerTransaction) {
-                        newCustomerSales += amt;
-                    } else {
-                        existingCustomerSales += amt;
-                    }
-
-                    // Count HNs (Unique)
-                    if(r.HN && !checkedHN.has(r.HN)) {
-                        checkedHN.add(r.HN);
-                        if (isNewCustomerTransaction) {
-                            newRegCount++;
-                            if (payHN.has(r.HN)) {
-                                newPayingRegCount++;
-                            }
-                        }
-                    }
-                });
-                
-                // Calculate Existing Active Customers (Total Active - New Registered)
-                const existingCustCount = uniqueHN.size - newRegCount;
-                
-                // Calculate Avg Per Head (Revenue / Unique Paying Customers)
-                const avgPerHead = payHN.size > 0 ? (rev / payHN.size) : 0;
-
-                return { 
-                    rev, 
-                    visit: totalVisits, 
-                    cust: uniqueHN.size, 
-                    payCust: payHN.size, 
-                    repeat: repeatCount, 
-                    rate, 
-                    newReg: newRegCount,
-                    newPayingReg: newPayingRegCount,
-                    newSales: newCustomerSales,
-                    existingSales: existingCustomerSales,
-                    existingCust: existingCustCount,
-                    avgHead: avgPerHead
-                };
-            };
-
-            const cur = calc(filteredData, false);
-            const prev = els.compareToggle.checked ? calc(compareFilteredData, true) : null;
-
-            updateStatCard('totalRevenue', cur.rev, prev?.rev, true);
-            updateStatCard('newCustomerSales', cur.newSales, prev?.newSales, true); 
-            updateStatCard('existingCustomerSales', cur.existingSales, prev?.existingSales, true);
-            updateStatCard('avgRevenuePerHead', cur.avgHead, prev?.avgHead, true); 
-            
-            updateStatCard('totalVisits', cur.visit, prev?.visit);
-            updateStatCard('totalCustomers', cur.cust, prev?.cust);
-            updateStatCard('newCustomers', cur.newReg, prev?.newReg); 
-            updateStatCard('existingCustomers', cur.existingCust, prev?.existingCust); 
-            
-            updateStatCard('newPayingCustomers', cur.newPayingReg, prev?.newPayingReg); 
-            updateStatCard('payingCustomers', cur.payCust, prev?.payCust);
-            updateStatCard('repeatRate', cur.rate, prev?.rate, false, true);
-        }
-
-        function updateStatCard(id, val, prevVal, isMoney = false, isPct = false) {
-            const el = document.getElementById(id);
-            if(!el) return;
-
-            // Forced 2 decimal places for everything
-            let txt = val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            if (isPct) txt += '%';
-            
-            let badgeHtml = '';
-            if (prevVal !== undefined && prevVal !== null) {
-                const diff = val - prevVal;
-                const pct = prevVal === 0 ? (val > 0 ? 100 : 0) : (diff / prevVal) * 100;
-                const cls = diff > 0 ? 'pos' : (diff < 0 ? 'neg' : 'neu');
-                const icon = diff > 0 ? 'up' : (diff < 0 ? 'down' : 'minus');
-                
-                let diffText = '';
-                if (!isPct) {
-                    let unit = '';
-                    if (isMoney) unit = ' บ.';
-                    else if (id.toLowerCase().includes('visit')) unit = ' ครั้ง';
-                    else unit = ' คน'; 
-                    
-                    // Format diff value to 0 decimals for badge text to save space, or 2 if strict
-                    // Let's stick to 2 since "everything" was requested
-                    const diffVal = Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    diffText = ` <span style="opacity:0.9; margin-left:3px;">(${diff > 0 ? '+' : '-'}${diffVal}${unit})</span>`;
-                }
-
-                badgeHtml = `<span class="badge ${cls}"><i class="fa-solid fa-caret-${icon}"></i> ${Math.abs(pct).toFixed(2)}%${diffText}</span>`;
-            }
-            el.innerHTML = `${txt} ${badgeHtml}`;
-        }
-
-        // --- 8. CHARTS ---
-        function updateCharts() {
-            // Destroy old charts
-            Object.values(charts).forEach(c => c.destroy());
-            charts = {};
-
-            // 1. Daily Sales
-            const daily = filteredData.reduce((acc, r) => {
-                if(r['วันที่ขาย']) acc[r['วันที่ขาย']] = (acc[r['วันที่ขาย']]||0) + (r['ยอดชำระ']||0);
-                return acc;
-            }, {});
-            const sortedDates = Object.keys(daily).sort((a,b) => parseThaiDate(a) - parseThaiDate(b));
-            
-            charts.daily = new Chart(document.getElementById('dailySalesChart'), {
-                type: 'line',
-                data: {
-                    labels: sortedDates,
-                    datasets: [{
-                        label: 'ยอดขาย',
-                        data: sortedDates.map(d => daily[d]),
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: {display:false} } } }
-            });
-
-            // 2. Category Pie
-            const cats = filteredData.reduce((acc, r) => {
-                if(r['ยอดชำระ'] > 0) {
-                    const c = getCategoryForRow(r);
-                    acc[c] = (acc[c]||0) + r['ยอดชำระ'];
-                }
-                return acc;
-            }, {});
-            const sortedCats = Object.entries(cats).sort((a,b) => b[1] - a[1]).slice(0, 8);
-            
-            charts.cat = new Chart(document.getElementById('categoryChart'), {
-                type: 'doughnut',
-                data: {
-                    labels: sortedCats.map(x => x[0]),
-                    datasets: [{
-                        data: sortedCats.map(x => x[1]),
-                        backgroundColor: ['#6366f1', '#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#6b7280'],
-                        borderWidth: 0
-                    }]
-                },
-                options: { 
-                    responsive: true, maintainAspectRatio: false, 
-                    cutout: '65%',
-                    plugins: { legend: { position: 'right' } }
-                }
-            });
-
-            // 3. Monthly Bar
-            const monthly = filteredData.reduce((acc, r) => {
-                const d = parseThaiDate(r['วันที่ขาย']);
-                if(d) {
-                    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-                    acc[k] = (acc[k]||0) + (r['ยอดชำระ']||0);
-                }
-                return acc;
-            }, {});
-            const sortedM = Object.keys(monthly).sort();
-            
-            charts.monthly = new Chart(document.getElementById('monthlySalesChart'), {
-                type: 'bar',
-                data: {
-                    labels: sortedM.map(k => {
-                        const [y, m] = k.split('-');
-                        return new Date(y, m-1).toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
-                    }),
-                    datasets: [{
-                        label: 'ยอดขาย',
-                        data: sortedM.map(k => monthly[k]),
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 6
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: {display:false} } } }
-            });
-            
-             // 5. Frequency Distribution
-             const hnVisits = filteredData.reduce((acc, row) => {
-                if(row.HN && row['วันที่ขาย']) {
-                    if(!acc[row.HN]) acc[row.HN] = new Set();
-                    acc[row.HN].add(row['วันที่ขาย']);
-                }
-                return acc;
-             }, {});
-             
-             // Count distribution and store HNs
-             const freqMap = {}; // Key: Count, Value: Array of HNs
-             Object.entries(hnVisits).forEach(([hn, dates]) => {
-                 const count = dates.size;
-                 if(!freqMap[count]) freqMap[count] = [];
-                 freqMap[count].push(hn);
-             });
-
-             const freqLabels = Object.keys(freqMap).map(Number).sort((a,b)=>a-b);
-             
-             charts.freq = new Chart(document.getElementById('frequencyDistributionChart'), {
-                 type: 'bar',
-                 data: {
-                     labels: freqLabels.map(f => `${f} ครั้ง`),
-                     datasets: [{
-                         label: 'จำนวนลูกค้า (คน)',
-                         data: freqLabels.map(f => freqMap[f].length),
-                         backgroundColor: '#8b5cf6',
-                         borderRadius: 4
-                     }]
-                 },
-                 options: { 
-                     responsive: true, 
-                     maintainAspectRatio: false, 
-                     scales: { x: { grid: {display:false} } },
-                     onClick: (e, active) => {
-                        if(active.length > 0) {
-                            const index = active[0].index;
-                            const freqCount = freqLabels[index];
-                            const hnList = freqMap[freqCount];
-                            // Pass false to hide copy section
-                            renderCustomerListModal(`ลูกค้าที่มาใช้บริการ ${freqCount} ครั้ง`, hnList, null, false);
-                        }
-                     },
-                     plugins: {
-                         tooltip: {
-                             callbacks: {
-                                 footer: () => 'คลิกเพื่อดูรายชื่อลูกค้า'
-                             }
-                         }
-                     }
-                 }
-             });
-        }
-        
-        // --- 9. RFM & SCATTER PLOTS ---
-        function calculateRFMSegments() {
-            const paying = filteredData.filter(r => r['ยอดชำระ'] > 0);
-            if (!paying.length) return { loyal: [], atRisk: [], newCust: [], lost: [] };
-            
-            const endDate = parseInputDate(els.endDate.value, true);
-            
-            const hnStats = paying.reduce((acc, r) => {
-                const hn = r.HN;
-                const d = parseThaiDate(r['วันที่ขาย']);
-                if (hn && d) {
-                    if (!acc[hn]) acc[hn] = { dates: new Set() };
-                    acc[hn].dates.add(d.toISOString().split('T')[0]);
-                }
-                return acc;
-            }, {});
-
-            const customers = Object.keys(hnStats).map(hn => {
-                const dates = [...hnStats[hn].dates].map(d => new Date(d)).sort((a, b) => b - a);
-                const recency = Math.floor((endDate - dates[0]) / (1000 * 60 * 60 * 24));
-                const frequency = dates.length;
-                return { hn, recency, frequency };
-            });
-
-            // Simplify Logic: Just quartiles or simple threshold
-            const segments = { loyal: [], atRisk: [], newCust: [], lost: [] };
-            customers.forEach(c => {
-                const p = { x: c.recency, y: c.frequency, hn: c.hn };
-                if (c.frequency >= 3 && c.recency <= 60) segments.loyal.push(p);
-                else if (c.frequency >= 3 && c.recency > 60) segments.atRisk.push(p);
-                else if (c.frequency < 3 && c.recency <= 30) segments.newCust.push(p);
-                else segments.lost.push(p);
-            });
-            return segments;
-        }
-
-        function updateRecencyFrequencyPlot(segments) {
-            const ctx = document.getElementById('recencyFrequencyPlot');
-            charts.rfm = new Chart(ctx, {
-                type: 'scatter',
-                data: {
-                    datasets: [
-                        { label: 'Loyal', data: segments.loyal, backgroundColor: '#10b981' },
-                        { label: 'At Risk', data: segments.atRisk, backgroundColor: '#f59e0b' },
-                        { label: 'New', data: segments.newCust, backgroundColor: '#3b82f6' },
-                        { label: 'Lost', data: segments.lost, backgroundColor: '#9ca3af' }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    onClick: (e, active) => {
-                        if(active.length) {
-                             const p = charts.rfm.data.datasets[active[0].datasetIndex].data[active[0].index];
-                             showCustomerDetail(p.hn);
-                        }
-                    },
-                    scales: {
-                        x: { title: {display:true, text:'ไม่ได้มานาน (วัน)'} },
-                        y: { title: {display:true, text:'มาใช้บริการ (ครั้ง)'} }
-                    },
-                    plugins: { tooltip: { callbacks: { label: c => `HN: ${c.raw.hn}` } } }
-                }
-            });
-        }
-        
-        function updatePerformanceMatrix() {
-             const ctx = document.getElementById('performanceMatrixChart');
-             const items = filteredData.reduce((acc, r) => {
-                 if(r['ยอดชำระ'] > 0 && r['รายการ']) {
-                     const n = r['รายการ'];
-                     if(!acc[n]) acc[n] = { rev:0, qty:0, customers: new Set() }; // Changed to track customers
-                     acc[n].rev += r['ยอดชำระ'];
-                     acc[n].qty++;
-                     if(r.HN) acc[n].customers.add(r.HN); // Track HN
-                 }
-                 return acc;
-             }, {});
-             
-             const data = Object.entries(items).sort((a,b)=>b[1].rev - a[1].rev).slice(0, 10).map(([k,v]) => ({
-                 label: k, x: v.qty, y: v.rev/v.qty
-             }));
-             
-             charts.perf = new Chart(ctx, {
-                 type: 'scatter',
-                 data: {
-                     datasets: [{ 
-                         label: 'Top Items', data, backgroundColor: '#ec4899', pointRadius: 8 
-                     }]
-                 },
-                 options: {
-                     responsive: true, maintainAspectRatio: false,
-                     plugins: { tooltip: { callbacks: { label: c => `${c.raw.label}: ${c.raw.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} บ. (${c.raw.x} ครั้ง)` } } },
-                     scales: {
-                         x: { title: {display:true, text:'จำนวนขาย (ครั้ง)'} },
-                         y: { title: {display:true, text:'ราคาเฉลี่ย (บาท)'} }
-                     }
-                 }
-             });
-             
-             // Update Table too
-             const tbody = document.getElementById('performanceMatrixBody');
-             // Top 20 for table
-             const tableData = Object.entries(items).sort((a,b)=>b[1].rev - a[1].rev).slice(0, 20);
-             if(!tableData.length) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center">ไม่มีข้อมูล</td></tr>`;
-             else {
-                 tbody.innerHTML = tableData.map(([k,v], i) => `
-                    <tr>
-                        <td style="text-align:center">${i+1}</td>
-                        <td>${k}</td>
-                        <td style="text-align:right">${v.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td style="text-align:center">${v.qty.toLocaleString()}</td>
-                        <td style="text-align:right">${(v.rev/v.qty).toLocaleString(undefined,{minimumFractionDigits: 2, maximumFractionDigits:2})}</td>
-                        <td style="text-align:center">${v.customers.size.toLocaleString()}</td>
-                    </tr>
-                 `).join('');
-             }
-        }
-
-        function updateRFMInsights(segments) {
-            const container = document.getElementById('rfmInsightsContainer');
-            const total = segments.loyal.length + segments.atRisk.length + segments.newCust.length + segments.lost.length;
-            if(!total) { container.innerHTML = ''; return; }
-            
-            const groups = [
-                 { key: 'loyal', name: 'Loyal Customers', count: segments.loyal.length, color: '#10b981', desc: 'ลูกค้าชั้นดี มาบ่อย รายได้หลัก', action: 'รักษาฐาน ให้ VIP Reward' },
-                 { key: 'atRisk', name: 'At Risk', count: segments.atRisk.length, color: '#f59e0b', desc: 'เคยมาบ่อยแต่หายไป', action: 'โทรติดตาม, ส่งโปรโมชั่น' },
-                 { key: 'newCust', name: 'New Potential', count: segments.newCust.length, color: '#3b82f6', desc: 'ลูกค้าใหม่ มีโอกาสพัฒนา', action: 'แนะนำบริการต่อเนื่อง' },
-                 { key: 'lost', name: 'Lost', count: segments.lost.length, color: '#9ca3af', desc: 'นานๆ มาที หรือหายไปนาน', action: 'กระตุ้นด้วยโปรแรงๆ' }
-            ];
-            
-            container.innerHTML = `
-                <div class="insights-box">
-                    <h4 style="margin-bottom:10px;"><i class="fa-solid fa-lightbulb"></i> คำแนะนำเบื้องต้น</h4>
-                    <p>กลุ่มที่ใหญ่ที่สุดคือ <strong>${groups.sort((a,b)=>b.count-a.count)[0].name}</strong> ควรโฟกัสทรัพยากรไปที่กลุ่มนี้</p>
-                </div>
-                <div class="stats-grid">
-                    ${groups.map(g => `
-                        <div class="stat-card" style="border-left: 4px solid ${g.color}; cursor:pointer;" onclick="showSegmentDetails('${g.key}', '${g.name}')">
-                            <div class="stat-value" style="color:${g.color}">${g.count} <span style="font-size:0.5em; color:#999">(${(g.count/total*100).toFixed(0)}%)</span></div>
-                            <div class="stat-label" style="font-weight:bold">${g.name}</div>
-                            <div style="font-size:0.85em; margin-top:5px; color:#666">${g.action}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        // --- 10. TABLES ---
         function updateCategoryStatsTable() {
-            const tbody = document.getElementById('categoryStatsBody');
-            const thead = document.querySelector('#categoryStatsTable thead tr');
-            
-            const isCompare = els.compareToggle.checked;
-
-            // Helper to process data
-            const process = (dataset) => dataset.reduce((acc, r) => {
+            const getCatData = (data) => data.reduce((acc, r) => {
                 const c = getCategoryForRow(r);
-                if(!acc[c]) acc[c] = { rev:0, hn:new Set(), payHn:new Set(), visits:{}, items: new Set() };
-                acc[c].rev += (r['ยอดชำระ']||0);
-                if(r['รายการ']) acc[c].items.add(r['รายการ']);
+                if(!acc[c]) acc[c] = { rev:0, hn:new Set(), items: new Set(), visits: {} };
+                acc[c].rev += r['ยอดชำระ'];
                 if(r.HN) {
                     acc[c].hn.add(r.HN);
-                    if(r['ยอดชำระ']>0) acc[c].payHn.add(r.HN);
                     if(r['วันที่ขาย']) (acc[c].visits[r.HN] = acc[c].visits[r.HN]||new Set()).add(r['วันที่ขาย']);
                 }
+                if(r['รายการ']) acc[c].items.add(r['รายการ']);
                 return acc;
             }, {});
 
-            const curData = process(filteredData);
-            const prevData = isCompare ? process(compareFilteredData) : {};
+            const cur = getCatData(filteredData);
+            const prev = compareData.length > 0 ? getCatData(compareData) : null;
+            const sortedKeys = Object.keys(cur).sort((a,b) => cur[b].rev - cur[a].rev);
+            
+            const head = document.getElementById('categoryTableHead');
+            head.innerHTML = `<th>หมวดหมู่</th><th>Items</th><th style="text-align:center">HN ไม่ซ้ำ</th><th style="text-align:right">ยอดรวม</th>` + (prev ? `<th style="text-align:right">ช่วงก่อน</th><th style="text-align:center">Change</th>` : ``) + `<th style="text-align:center">Drilldown</th>`;
 
-            // Get all unique categories
-            const allCats = new Set([...Object.keys(curData), ...Object.keys(prevData)]);
-            const sortedCats = [...allCats].sort((a,b) => (curData[b]?.rev||0) - (curData[a]?.rev||0));
-
-            // Update Header
-            if(isCompare) {
-                thead.innerHTML = `
-                    <th>หมวดหมู่</th>
-                    <th style="text-align:right">ยอดขาย (ปัจจุบัน)</th>
-                    <th style="text-align:right">ยอดขาย (ก่อนหน้า)</th>
-                    <th style="text-align:center">% ยอดขาย</th>
-                    <th style="text-align:center">ลูกค้าจ่าย (ปัจจุบัน)</th>
-                    <th style="text-align:center">ลูกค้าจ่าย (ก่อนหน้า)</th>
-                    <th style="text-align:center">% ลูกค้า</th>
-                `;
-            } else {
-                thead.innerHTML = `
-                    <th>หมวดหมู่</th>
-                    <th>รายการสินค้า/บริการ (Items)</th>
-                    <th>HN ไม่ซ้ำ</th>
-                    <th>HN ที่จ่าย</th>
-                    <th>ยอดรวม (บาท)</th>
-                    <th>กลับมาซ้ำ</th>
-                `;
-            }
-
-            tbody.innerHTML = sortedCats.map(k => {
-                const cur = curData[k] || { rev:0, hn:new Set(), payHn:new Set(), visits:{}, items: new Set() };
-                
-                // Items string
-                const itemsArr = Array.from(cur.items);
-                const itemsStr = itemsArr.slice(0, 5).join(', ') + (itemsArr.length > 5 ? ` ... (+${itemsArr.length - 5})` : '');
-
-                if(isCompare) {
-                    const prev = prevData[k] || { rev:0, payHn: new Set() };
-                    
-                    // Sales Diff
-                    const diffRev = cur.rev - prev.rev;
-                    const pctRev = prev.rev === 0 ? (cur.rev > 0 ? 100 : 0) : (diffRev / prev.rev) * 100;
-                    const iconRev = diffRev > 0 ? 'fa-arrow-up' : (diffRev < 0 ? 'fa-arrow-down' : 'fa-minus');
-                    const badgeRevClass = diffRev > 0 ? 'pos' : (diffRev < 0 ? 'neg' : 'neu');
-
-                    // HN Diff
-                    const curHN = cur.payHn.size;
-                    const prevHN = prev.payHn ? prev.payHn.size : 0;
-                    const diffHN = curHN - prevHN;
-                    const pctHN = prevHN === 0 ? (curHN > 0 ? 100 : 0) : (diffHN / prevHN) * 100;
-                    const iconHN = diffHN > 0 ? 'fa-arrow-up' : (diffHN < 0 ? 'fa-arrow-down' : 'fa-minus');
-                    const badgeHNClass = diffHN > 0 ? 'pos' : (diffHN < 0 ? 'neg' : 'neu');
-
-                    return `<tr>
-                        <td><span class="clickable" onclick="showCustomersForCategory('${k}')">${k}</span></td>
-                        <td style="text-align:right; font-weight:bold;">${cur.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td style="text-align:right; color:#666;">${prev.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td style="text-align:center">
-                            <span class="badge ${badgeRevClass}">
-                                <i class="fa-solid ${iconRev}"></i> ${Math.abs(pctRev).toFixed(2)}%
-                            </span>
-                        </td>
-                        <td style="text-align:center; font-weight:bold;">${curHN.toLocaleString()}</td>
-                        <td style="text-align:center; color:#666;">${prevHN.toLocaleString()}</td>
-                        <td style="text-align:center">
-                            <span class="badge ${badgeHNClass}">
-                                <i class="fa-solid ${iconHN}"></i> ${Math.abs(pctHN).toFixed(2)}%
-                            </span>
-                        </td>
-                    </tr>`;
-                } else {
-                    const repeat = Object.values(cur.visits).filter(x => x.size > 1).length;
-                    return `<tr>
-                        <td><span class="clickable" onclick="showCustomersForCategory('${k}')">${k}</span></td>
-                        <td style="font-size:0.85em; color:#666; max-width:300px;">${itemsStr}</td>
-                        <td style="text-align:center">${cur.hn.size}</td>
-                        <td style="text-align:center">${cur.payHn.size}</td>
-                        <td style="text-align:right">${cur.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td style="text-align:center">${repeat}</td>
-                    </tr>`;
+            document.getElementById('categoryStatsBody').innerHTML = sortedKeys.map(k => {
+                const c = cur[k];
+                const p = prev ? prev[k] : null;
+                const repeatCount = Object.values(c.visits).filter(x => x.size > 1).length;
+                let changeHtml = '';
+                if(p) {
+                    const diff = c.rev - p.rev;
+                    const pct = p.rev === 0 ? (c.rev > 0 ? 100 : 0) : (diff / p.rev) * 100;
+                    changeHtml = `<td style="text-align:right; font-size:0.75rem">${p.rev.toLocaleString()}</td><td style="text-align:center"><span class="badge ${pct>=0?'pos':'neg'}">${pct>=0?'+':''}${pct.toFixed(0)}%</span></td>`;
                 }
+
+                return `<tr>
+                    <td style="font-weight:700">${k}</td>
+                    <td style="color:#666; font-size:0.7rem;">${Array.from(c.items).slice(0,2).join(', ')}..</td>
+                    <td style="text-align:center">${c.hn.size}</td>
+                    <td style="text-align:right; font-weight:700">${c.rev.toLocaleString()}</td>
+                    ${changeHtml}
+                    <td style="text-align:center">${repeatCount} <button class="btn-sm" onclick="showCategoryCustomers('${k}')">ดูรายชื่อ</button></td>
+                </tr>`;
             }).join('');
         }
-        
-        function updateRepeatCustomersTable() {
-            const tbody = document.getElementById('repeatCustomersBody');
-            const hnData = filteredData.reduce((acc, r) => {
-                if(!r.HN) return acc;
-                if(!acc[r.HN]) acc[r.HN] = { name:r['ชื่อ-สกุล'], phone:r['เบอร์โทร'], rev:0, dates:new Set() };
-                acc[r.HN].rev += (r['ยอดชำระ']||0);
-                if(r['วันที่ขาย']) acc[r.HN].dates.add(r['วันที่ขาย']);
+
+        function renderCharts() {
+            Object.values(charts).forEach(c => c.destroy());
+            
+            // 1. Comparative Daily
+            const getDaily = (data) => data.reduce((acc, r) => {
+                const d = r['วันที่ขาย'];
+                acc[d] = (acc[d]||0) + r['ยอดชำระ'];
                 return acc;
             }, {});
             
-            const list = Object.entries(hnData)
-                .filter(([k,v]) => v.dates.size > 1)
-                .map(([k,v]) => {
-                    const sortedD = [...v.dates].sort((a,b)=>parseThaiDate(b)-parseThaiDate(a));
-                    return { hn:k, ...v, count: v.dates.size, last: sortedD[0] };
-                })
-                .sort((a,b) => b.rev - a.rev)
-                .slice(0, 100);
+            const curDaily = getDaily(filteredData);
+            const sortedDates = Object.keys(curDaily).sort((a,b) => parseThaiDate(a) - parseThaiDate(b));
             
-            tbody.innerHTML = list.map(c => `
-                <tr>
-                    <td><span class="clickable" onclick="showCustomerDetail('${c.hn}')">${c.hn}</span></td>
-                    <td>${c.name}</td>
-                    <td>${c.phone}</td>
-                    <td style="text-align:center">${c.count}</td>
-                    <td style="text-align:center">${c.dates.size}</td>
-                    <td style="text-align:right">${c.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                    <td>${c.last}</td>
-                </tr>
-            `).join('');
-        }
-        
-        function updateTopSpendersTable() {
-            const tbody = document.getElementById('topSpendersBody');
-            const hnData = filteredData.reduce((acc, r) => {
-                if(!r.HN || (r['ยอดชำระ']||0)<=0) return acc;
-                if(!acc[r.HN]) acc[r.HN] = { name:r['ชื่อ-สกุล'], phone:r['เบอร์โทร'], rev:0, items:new Set() };
-                acc[r.HN].rev += r['ยอดชำระ'];
-                if(r['รายการ']) acc[r.HN].items.add(r['รายการ']);
-                return acc;
-            }, {});
+            const datasets = [{
+                label: 'ปัจจุบัน', data: sortedDates.map(d => curDaily[d]),
+                borderColor: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.1)', fill: true, tension: 0.3
+            }];
             
-            const list = Object.entries(hnData)
-                .map(([k,v]) => ({hn:k, ...v}))
-                .sort((a,b)=>b.rev - a.rev)
-                .slice(0, 20);
-                
-            tbody.innerHTML = list.map((c,i) => `
-                <tr>
-                    <td style="text-align:center"><span style="font-weight:bold; color:${i<3?'#d97706':'#666'}">${i+1}</span></td>
-                    <td>${c.hn}</td>
-                    <td>${c.name}</td>
-                    <td>${c.phone}</td>
-                    <td style="font-size:0.85em; color:#666; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${[...c.items].join(', ')}</td>
-                    <td style="text-align:right; font-weight:bold; color:#ec4899">${c.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                </tr>
-            `).join('');
-        }
-
-        // --- 11. MODALS & AI ---
-        function openModal(id) {
-            const m = document.getElementById(id);
-            m.style.display = 'block';
-            setTimeout(() => m.classList.add('show'), 10);
-        }
-        function closeModal(id) {
-            const m = document.getElementById(id);
-            m.classList.remove('show');
-            setTimeout(() => m.style.display = 'none', 300);
-        }
-        
-        function showCustomerDetail(hn) {
-            const trans = filteredData.filter(r => r.HN === hn);
-            if(!trans.length) return;
-            const info = trans[0];
-            const total = trans.reduce((s,r)=>s+(r['ยอดชำระ']||0),0);
-            
-            document.getElementById('modalTitle').textContent = `👤 ข้อมูลลูกค้า: ${info['ชื่อ-สกุล']}`;
-            document.getElementById('modalBody').innerHTML = `
-                <div style="background:#f9fafb; padding:15px; border-radius:10px; margin-bottom:15px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <div><strong>HN:</strong> ${hn}</div>
-                    <div><strong>เบอร์โทร:</strong> ${info['เบอร์โทร']}</div>
-                    <div><strong>ยอดสะสม:</strong> <span style="color:#10b981; font-weight:bold">${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ฿</span></div>
-                    <div><strong>จำนวนครั้ง:</strong> ${new Set(trans.map(r=>r['วันที่ขาย'])).size}</div>
-                    <div><strong>วันที่ลงทะเบียน:</strong> ${info.__regDate ? info.__regDate.toLocaleDateString('th-TH') : '-'}</div>
-                </div>
-                <h4>ประวัติการใช้บริการ</h4>
-                <div style="max-height:300px; overflow-y:auto; margin-top:10px;">
-                    <table>
-                        <thead><tr><th>วันที่</th><th>รายการ</th><th>ยอดเงิน</th></tr></thead>
-                        <tbody>
-                            ${trans.sort((a,b)=>(parseThaiDate(b['วันที่ขาย'])||0)-(parseThaiDate(a['วันที่ขาย'])||0)).map(r=>`
-                                <tr>
-                                    <td>${r['วันที่ขาย']}</td>
-                                    <td>${r['รายการ']}</td>
-                                    <td style="text-align:right">${(r['ยอดชำระ']||0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-            openModal('customerModal');
-        }
-        
-        function showCustomersForCategory(cat) {
-            const hns = new Set();
-            filteredData.forEach(r => { if(getCategoryForRow(r)===cat && r.HN) hns.add(r.HN); });
-            // Modified to pass the category filter
-            renderCustomerListModal(`หมวดหมู่: ${cat}`, [...hns], cat, false);
-        }
-        
-        function showSegmentDetails(key, name) {
-            if(!rfmSegmentData[key]) return;
-            renderCustomerListModal(`กลุ่มลูกค้า: ${name}`, rfmSegmentData[key].map(x=>x.hn), null, false);
-        }
-        
-        // Modified function to accept showCopy parameter (default false)
-        function renderCustomerListModal(title, hnList, filterCat = null, showCopy = false) {
-            document.getElementById('modalTitle').textContent = `📂 ${title} (${hnList.length} คน)`;
-            
-            // Aggregate data for list (Calculate ALL data first)
-            const fullList = hnList.map(hn => {
-                let rows = filteredData.filter(r => r.HN === hn);
-                
-                // If filtering by category (for "Sales by Category" popup)
-                if(filterCat) {
-                    rows = rows.filter(r => getCategoryForRow(r) === filterCat);
-                }
-
-                if (rows.length === 0) return null;
-
-                const rev = rows.reduce((s,r) => s + (r['ยอดชำระ']||0), 0);
-                
-                // Find latest visit date
-                const dates = rows.map(r => parseThaiDate(r['วันที่ขาย'])).filter(d => d);
-                const lastVisit = dates.length ? new Date(Math.max.apply(null, dates)) : null;
-                const lastVisitStr = lastVisit ? lastVisit.toLocaleDateString('th-TH') : '-';
-
-                // Extract items
-                const itemsSet = new Set();
-                rows.forEach(r => { if(r['รายการ']) itemsSet.add(r['รายการ']); });
-                const itemsStr = Array.from(itemsSet).join(', ');
-
-                return { hn, name: rows[0]['ชื่อ-สกุล'], phone: rows[0]['เบอร์โทร'], rev, items: itemsStr, lastVisit: lastVisitStr };
-            }).filter(item => item !== null)
-              .sort((a,b) => b.rev - a.rev);
-            
-            // 2. Slice for Display (Limit to top 200 for UI performance)
-            const displayList = fullList.slice(0, 200);
-
-            // Removing Copy Section Logic
-            let copySectionHtml = '';
-            /*
-            if (showCopy) {
-                // ... (Removed) ...
+            if(compareData.length > 0) {
+                const prevDaily = getDaily(compareData);
+                const prevDates = Object.keys(prevDaily).sort((a,b) => parseThaiDate(a) - parseThaiDate(b));
+                datasets.push({
+                    label: 'เปรียบเทียบ', data: prevDates.map(d => prevDaily[d]),
+                    borderColor: '#9ca3af', borderDash: [5,5], fill: false, tension: 0.3
+                });
             }
-            */
 
-            document.getElementById('modalBody').innerHTML = `
-                <div style="max-height:600px; overflow-y:auto;">
-                    <table>
-                        <thead><tr><th>HN</th><th>ชื่อ</th><th>รายการที่ซื้อ</th><th>ยอด (บาท)</th><th>ล่าสุด</th></tr></thead>
-                        <tbody>
-                            ${displayList.map(c => `
-                                <tr>
-                                    <td><span class="clickable" onclick="showCustomerDetail('${c.hn}')">${c.hn}</span></td>
-                                    <td>${c.name}<br><small style="color:#999">${c.phone}</small></td>
-                                    <td style="font-size:0.9em; color:#555;">${c.items}</td>
-                                    <td style="text-align:right; font-weight:bold;">${c.rev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                    <td style="font-size:0.9em;">${c.lastVisit}</td>
-                                </tr>
-                            `).join('')}
-                            ${fullList.length > 200 ? `<tr><td colspan="5" style="text-align:center; color:#888; font-style:italic;">...แสดง 200 รายชื่อแรกจากทั้งหมด ${fullList.length} คน...</td></tr>` : ''}
-                        </tbody>
-                    </table>
-                </div>
-                ${copySectionHtml}
-            `;
-            openModal('customerModal');
-        }
-
-        function exportFrequencyData() {
-            // 1. Calculate
-            const hnVisits = filteredData.reduce((acc, row) => {
-               if(row.HN && row['วันที่ขาย']) {
-                   if(!acc[row.HN]) acc[row.HN] = new Set();
-                   acc[row.HN].add(row['วันที่ขาย']);
-               }
-               return acc;
-            }, {});
-            
-            const freqDist = {};
-            Object.values(hnVisits).forEach(dates => {
-                const count = dates.size;
-                freqDist[count] = (freqDist[count] || 0) + 1;
+            charts.daily = new Chart(document.getElementById('dailyChart'), {
+                type: 'line', 
+                data: { labels: sortedDates, datasets }, 
+                options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // 2. Format HTML Table
-            const keys = Object.keys(freqDist).map(Number).sort((a,b)=>a-b);
-            let html = `<div style="max-height:500px; overflow-y:auto;"><table style="margin-top:10px;">
-                        <thead>
-                            <tr>
-                                <th style="background:#eef2ff; color:#6366f1;">จำนวนครั้งที่มาใช้บริการ</th>
-                                <th style="background:#eef2ff; color:#6366f1; text-align:center;">จำนวนลูกค้า (คน)</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
+            const monthly = filteredData.reduce((acc, r) => { const key = `${r.__date.getFullYear()}-${String(r.__date.getMonth()+1).padStart(2,'0')}`; acc[key] = (acc[key]||0) + r['ยอดชำระ']; return acc; }, {});
+            charts.monthly = new Chart(document.getElementById('monthlyChart'), { type: 'bar', data: { labels: Object.keys(monthly).sort(), datasets: [{ label: 'ยอดขายรายเดือน', data: Object.keys(monthly).sort().map(m => monthly[m]), backgroundColor: '#3b82f6' }] }, options: { responsive: true, maintainAspectRatio: false } });
             
-            keys.forEach(k => {
-                html += `<tr>
-                            <td style="font-weight:bold;">${k} ครั้ง</td>
-                            <td style="text-align:center;">${freqDist[k].toLocaleString()}</td>
-                         </tr>`;
-            });
-            html += `</tbody></table></div>`;
-
-            // 3. Render Modal
-            document.getElementById('modalTitle').textContent = `📊 สรุปความถี่การใช้บริการ`;
-            document.getElementById('modalBody').innerHTML = html;
-            openModal('customerModal');
-        }
-        
-        function exportToPDF() {
-            const element = document.querySelector('.dashboard-container');
-            const controls = document.querySelector('.controls-container');
-            
-            // 1. Hide controls
-            controls.style.display = 'none';
-
-            // 2. Get exact size
-            const w = element.scrollWidth;
-            const h = element.scrollHeight;
-
-            // 3. Config for Single Page Screenshot
-            const opt = {
-                margin: 0,
-                filename: `Clinic_Snapshot_${new Date().toISOString().split('T')[0]}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { 
-                    scale: 2, // Retains quality
-                    useCORS: true,
-                    scrollY: 0,
-                    windowWidth: w,
-                    windowHeight: h
-                },
-                jsPDF: { 
-                    unit: 'px', 
-                    format: [w, h], 
-                    orientation: w > h ? 'l' : 'p' 
-                }
-            };
-
-            // Loading state
-            const btn = document.getElementById('exportPdfButton');
-            const oldContent = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
-
-            // 4. Generate
-            html2pdf().set(opt).from(element).save().then(() => {
-                controls.style.display = 'flex';
-                btn.innerHTML = oldContent;
-            }).catch(err => {
-                console.error(err);
-                alert('Export failed');
-                controls.style.display = 'flex';
-                btn.innerHTML = oldContent;
-            });
-        }
-
-        function copyModalText(btn) {
-            const t = document.getElementById('modalCopyText');
-            t.select();
-            navigator.clipboard.writeText(t.value);
-            const oldText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว';
-            setTimeout(() => btn.innerHTML = oldText, 2000);
-        }
-
-        function generateAISummary() {
-            if (!filteredData || filteredData.length === 0) return alert('ไม่มีข้อมูลสำหรับสรุปผล');
-
-            // --- 1. OVERVIEW STATS CALCULATIONS ---
-            const uniqueHN = new Set(filteredData.map(r => r.HN).filter(x => x));
-            const payHN = new Set(filteredData.filter(r => r['ยอดชำระ'] > 0).map(r => r.HN));
-            const totalRev = filteredData.reduce((s, r) => s + (r['ยอดชำระ'] || 0), 0);
-            
-            // Visits Map (HN -> Set of Dates)
-            const visitsMap = filteredData.reduce((acc, r) => {
-                if (r.HN && r['วันที่ขาย']) {
-                    if (!acc[r.HN]) acc[r.HN] = new Set();
-                    acc[r.HN].add(r['วันที่ขาย']);
+            const items = filteredData.reduce((acc, r) => {
+                if(r['ยอดชำระ'] > 0 && r['รายการ']) {
+                    if(!acc[r['รายการ']]) acc[r['รายการ']] = { rev:0, qty:0 };
+                    acc[r['รายการ']].rev += r['ยอดชำระ'];
+                    acc[r['รายการ']].qty++;
                 }
                 return acc;
             }, {});
-            const totalVisits = Object.values(visitsMap).reduce((s, v) => s + v.size, 0);
-            
-            // New vs Existing Calculations
-            let newRegCount = 0;
-            let newPayingRegCount = 0;
-            let newCustomerSales = 0;
-            let existingCustomerSales = 0;
-            
-            const start = parseInputDate(els.startDate.value);
-            const end = parseInputDate(els.endDate.value, true);
-            const checkedHN = new Set();
+            const sortedItems = Object.entries(items).sort((a,b)=>b[1].rev - a[1].rev).slice(0, 10);
+            charts.perf = new Chart(document.getElementById('performanceMatrixChart'), { type: 'bubble', data: { datasets: [{ label: 'Top Items', data: sortedItems.map(([k,v]) => ({label: k, x:v.qty, y:v.rev/v.qty, r:Math.min(20, Math.sqrt(v.rev)/20+5)})), backgroundColor: 'rgba(236, 72, 153, 0.6)' }] }, options: { responsive: true, maintainAspectRatio: false } });
 
-            filteredData.forEach(r => {
-                const amt = r['ยอดชำระ'] || 0;
-                let isNew = false;
-                // Check if registered within current filtered range
-                if (r.HN && r.__regDate && start && end) {
-                    if (r.__regDate >= start && r.__regDate <= end) isNew = true;
-                }
-
-                if (isNew) newCustomerSales += amt;
-                else existingCustomerSales += amt;
-
-                if (r.HN && !checkedHN.has(r.HN)) {
-                    checkedHN.add(r.HN);
-                    if (isNew) {
-                        newRegCount++;
-                        if (payHN.has(r.HN)) newPayingRegCount++;
-                    }
-                }
-            });
-
-            const repeatCount = Object.values(visitsMap).filter(v => v.size > 1).length;
-            const repeatRate = uniqueHN.size ? ((repeatCount / uniqueHN.size) * 100).toFixed(2) : 0;
-            const avgHead = payHN.size ? (totalRev / payHN.size) : 0;
-
-            // --- 2. MONTHLY ANALYSIS ---
-            const monthlyData = {};
-            filteredData.forEach(r => {
-                const d = parseThaiDate(r['วันที่ขาย']);
-                if (!d) return;
-                const mKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; // YYYY-MM
-                
-                if (!monthlyData[mKey]) monthlyData[mKey] = { sales: 0, hns: new Set(), newRegs: new Set() };
-                
-                monthlyData[mKey].sales += (r['ยอดชำระ']||0);
-                if (r.HN) {
-                    monthlyData[mKey].hns.add(r.HN);
-                    // Check if new registration in THAT specific month
-                    if (r.__regDate) {
-                        const regY = r.__regDate.getFullYear();
-                        const regM = r.__regDate.getMonth();
-                        if (regY === d.getFullYear() && regM === d.getMonth()) {
-                            monthlyData[mKey].newRegs.add(r.HN);
+            const freqMap = processedCustomers.reduce((acc, c) => { acc[c.visits.size] = (acc[c.visits.size]||0) + 1; return acc; }, {});
+            const freqLabels = Object.keys(freqMap).sort((a,b)=>a-b);
+            charts.freq = new Chart(document.getElementById('frequencyChart'), { 
+                type: 'bar', 
+                data: { 
+                    labels: freqLabels.map(l => l + ' ครั้ง'), 
+                    datasets: [{ label: 'จำนวนคน', data: freqLabels.map(l => freqMap[l]), backgroundColor: '#8b5cf6' }] 
+                }, 
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    onClick: (evt, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const freqLabel = charts.freq.data.labels[index];
+                            const freqValue = parseInt(freqLabel);
+                            showFrequencyCustomers(freqValue);
                         }
                     }
-                }
+                } 
             });
+        }
 
-            // --- 3. FREQUENCY DISTRIBUTION ---
-            const freqDist = {};
-            Object.values(visitsMap).forEach(dates => {
-                const count = dates.size;
-                freqDist[count] = (freqDist[count] || 0) + 1;
-            });
+        function showFrequencyCustomers(freq) {
+            const list = processedCustomers.filter(c => c.visits.size === freq)
+                                         .sort((a,b) => b.total - a.total);
 
-            // --- 4. TOP CATEGORIES ---
-            const catStats = filteredData.reduce((acc, r) => {
-                if ((r['ยอดชำระ']||0) > 0) {
-                    const c = getCategoryForRow(r);
-                    acc[c] = (acc[c]||0) + r['ยอดชำระ'];
+            document.getElementById('listModalTitle').textContent = `👥 รายชื่อลูกค้าที่มาใช้บริการ ${freq} ครั้ง (${list.length} คน)`;
+            document.getElementById('listModalBody').innerHTML = `
+                <table style="width:100%">
+                    <thead><tr><th>HN</th><th>ชื่อ / เบอร์โทร</th><th style="text-align:right">ยอดรวมทั้งหมด</th><th>วันที่ล่าสุด</th><th>รายการสินค้าล่าสุด</th></tr></thead>
+                    <tbody>
+                        ${list.map(c => `
+                            <tr>
+                                <td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td>
+                                <td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td>
+                                <td style="text-align:right; font-weight:700">${c.total.toLocaleString()}</td>
+                                <td>${c.lastDate.toLocaleDateString('th-TH')}</td>
+                                <td style="font-size:0.75rem; color:#666">${Array.from(c.items).slice(-2).join(', ')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            openModal('listModal');
+        }
+
+        function updatePerformanceMatrix() {
+            const items = filteredData.reduce((acc, r) => {
+                if(r['ยอดชำระ'] > 0 && r['รายการ']) {
+                    if(!acc[r['รายการ']]) acc[r['รายการ']] = { rev:0, qty:0, hns: new Set() };
+                    acc[r['รายการ']].rev += r['ยอดชำระ'];
+                    acc[r['รายการ']].qty++;
+                    acc[r['รายการ']].hns.add(r.HN);
                 }
                 return acc;
             }, {});
-            const topCats = Object.entries(catStats).sort((a,b)=>b[1]-a[1]).slice(0, 5);
+            const sortedItems = Object.entries(items).sort((a,b)=>b[1].rev - a[1].rev).slice(0, 10);
+            document.getElementById('performanceMatrixBody').innerHTML = sortedItems.map(([k,v], i) => `<tr><td style="text-align:center">${i+1}</td><td style="font-weight:600">${k}</td><td style="text-align:right">${v.rev.toLocaleString()}</td><td style="text-align:center">${v.qty}</td><td style="text-align:right">${(v.rev/v.qty).toFixed(0)}</td><td style="text-align:center">${v.hns.size}</td></tr>`).join('');
+        }
 
-            // --- 5. TOP ITEMS ---
-            const itemStats = filteredData.reduce((acc, r) => {
-                if (r['รายการ'] && (r['ยอดชำระ']||0) > 0) {
-                    const n = r['รายการ'];
-                    if(!acc[n]) acc[n] = { sales:0, qty:0, hns: new Set() };
-                    acc[n].sales += r['ยอดชำระ'];
-                    acc[n].qty++;
-                    if(r.HN) acc[n].hns.add(r.HN);
-                }
-                return acc;
+        function renderDetailsTable() {
+            const filter = document.getElementById('segmentFilter').value;
+            const displayData = filter === 'all' ? processedCustomers : processedCustomers.filter(c => c.segmentLabel === filter);
+            document.getElementById('detailsTableBody').innerHTML = displayData.slice(0, 500).map((c) => `<tr><td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td><td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td><td>${c.segmentLabel}</td><td style="font-weight:700; text-align:right">${c.total.toLocaleString()}</td><td>${c.lastDate.toLocaleDateString('th-TH')}</td></tr>`).join('');
+        }
+
+        function showCategoryCustomers(catName) {
+            const trans = filteredData.filter(r => getCategoryForRow(r) === catName && r.HN);
+            const hnGroups = trans.reduce((acc, r) => {
+                if(!acc[r.HN]) acc[r.HN] = { name: r['ชื่อ-สกุล'] || '-', phone: r['เบอร์โทร'] || '-', total: 0, items: new Set() };
+                acc[r.HN].total += r['ยอดชำระ']; acc[r.HN].items.add(r['รายการ']); return acc;
             }, {});
-            const topItems = Object.entries(itemStats).sort((a,b)=>b[1].sales-a[1].sales).slice(0, 10);
+            const sorted = Object.entries(hnGroups).map(([hn, data]) => ({ hn, ...data })).sort((a,b) => b.total - a.total);
+            document.getElementById('listModalTitle').textContent = `📂 หมวดหมู่: ${catName}`;
+            document.getElementById('listModalBody').innerHTML = `<table style="width:100%"><thead><tr><th>HN</th><th>ชื่อ / เบอร์โทร</th><th style="text-align:right">ยอด</th><th>รายการ</th></tr></thead><tbody>${sorted.map(c => `<tr><td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td><td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td><td style="text-align:right; font-weight:700">${c.total.toLocaleString()}</td><td style="font-size:0.75rem; color:#666">${Array.from(c.items).join(', ')}</td></tr>`).join('')}</tbody></table>`;
+            openModal('listModal');
+        }
 
-            // --- BUILD TEXT PROMPT ---
+        function parseThaiDate(s) { 
+            if(!s) return null; if (s instanceof Date) return s; 
+            const str = s.toString().trim();
+            const p = str.split(/[\/\-]/); if(p.length !== 3) return null; 
+            let y = parseInt(p[2]); if(y > 2500) y -= 543; 
+            return new Date(y, parseInt(p[1])-1, parseInt(p[0])); 
+        }
+
+        function showCustDetail(hn) {
+            const cust = processedCustomers.find(c => c.hn === hn);
+            if(!cust) return;
+            const history = rawData.filter(r => r.HN === hn).sort((a,b) => b.__date - a.__date);
+            document.getElementById('custModalTitle').textContent = `👤 ${cust.name} (HN: ${hn})`;
+            document.getElementById('custModalBody').innerHTML = `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:20px; background:#f8fafc; padding:15px; border-radius:10px;"><div><strong>เบอร์โทร:</strong> ${cust.phone}</div><div><strong>กลุ่มยอดซื้อ:</strong> ${cust.segmentLabel}</div><div><strong>ยอดรวม:</strong> ${cust.total.toLocaleString()} บาท</div><div><strong>มาทั้งหมด:</strong> ${cust.visits.size} ครั้ง</div></div><table><thead><tr><th>วันที่</th><th>รายการ</th><th style="text-align:right">ยอด</th></tr></thead><tbody>${history.map(h => `<tr><td>${h['วันที่ขาย']}</td><td>${h['รายการ']}</td><td style="text-align:right">${h['ยอดชำระ'].toLocaleString()}</td></tr>`).join('')}</tbody></table>`;
+            openModal('custModal');
+        }
+
+        // --- Strategic Summary Prompt ---
+        function showAIModal() {
             const fNum = (n) => n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            const fInt = (n) => n.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
+            const fInt = (n) => n.toLocaleString(undefined, {maximumFractionDigits: 0});
+            const cur = calculateMetrics(filteredData, processedCustomers);
+            
+            let prompt = `Role: Clinic Business Strategist\n`;
+            prompt += `Task: Analyze the clinic performance data and suggest actionable growth strategies.\n\n`;
+            prompt += `--- 1. Business Overview (ภาพรวมธุรกิจ) ---\n`;
+            prompt += `- ยอดขายรวม: ${fNum(cur.rev)} บาท\n`;
+            prompt += `- ยอดต่อหัว (Avg/Head): ${fNum(cur.avgHead)} บาท/คน\n`;
+            prompt += `- ยอดขายลูกค้าใหม่: ${fNum(cur.newSales)} บาท\n`;
+            prompt += `- ยอดขายลูกค้าเก่า: ${fNum(cur.oldSales)} บาท\n`;
+            prompt += `- จำนวน Visit: ${fInt(cur.visits)} ครั้ง\n`;
+            prompt += `- ลูกค้าทั้งหมด: ${fInt(cur.unique)} คน\n`;
+            prompt += `- ลูกค้าใหม่ (ลงทะเบียน): ${fInt(cur.newReg)} คน\n`;
+            prompt += `- ลูกค้าเก่า: ${fInt(cur.oldCust)} คน\n`;
+            prompt += `- ลูกค้าใหม่จ่ายเงิน: ${fInt(cur.newPaying)} คน\n`;
+            prompt += `- ลูกค้าที่จ่ายเงินทั้งหมด: ${fInt(cur.payingCount)} คน\n`;
+            prompt += `- อัตราลูกค้าเดิม (Repeat Rate): ${cur.repeatRate.toFixed(1)}%\n\n`;
 
-            let txt = `Role: คุณเป็น Data Analyst ผู้เชี่ยวชาญด้านธุรกิจคลินิกความงาม
-Task: วิเคราะห์ข้อมูลสรุปยอดขาย (Summary Report) ด้านล่างนี้ เพื่อหา Insight และโอกาสทางธุรกิจ
-
-## 1. ภาพรวมธุรกิจ (Overview)
-- ยอดขายรวม: ${fNum(totalRev)} บาท
-- ยอดขายลูกค้าใหม่: ${fNum(newCustomerSales)} บาท
-- ยอดขายลูกค้าเก่า: ${fNum(existingCustomerSales)} บาท
-- ยอดต่อหัว (Avg/Head): ${fNum(avgHead)} บาท/คน
-- จำนวน Visit รวม: ${fInt(totalVisits)} ครั้ง
-- ลูกค้าทั้งหมด (Total Unique HN): ${fInt(uniqueHN.size)} คน
-- ลูกค้าที่มียอดชำระ (Paying Customers): ${fInt(payHN.size)} คน
-- ลูกค้าใหม่ (New Registered): ${fInt(newRegCount)} คน
-- ลูกค้าใหม่ที่มียอดชำระ: ${fInt(newPayingRegCount)} คน
-- อัตราลูกค้าเดิม (Repeat Rate): ${repeatRate}%
-
-## 2. การวิเคราะห์ข้อมูลรายเดือน (Monthly Analysis)
-(ข้อมูลเรียงตามเดือน)
-`;
-
-            Object.keys(monthlyData).sort().forEach(m => {
-                const d = monthlyData[m];
-                const newC = d.newRegs.size;
-                const oldC = d.hns.size - newC;
-                txt += `- ${m}: ยอดขาย ${fNum(d.sales)} | ลูกค้า ${fInt(d.hns.size)} คน (ใหม่ ${fInt(newC)}, เก่า ${fInt(oldC)})\n`;
+            prompt += `--- 2. Spending Segments (แบ่งตามยอดชำระ) ---\n`;
+            PRICE_RANGES.forEach(r => {
+                const members = processedCustomers.filter(c => c.segmentLabel === r.label);
+                const sum = members.reduce((s, c) => s + c.total, 0);
+                prompt += `- ${r.label}: ${fInt(members.length)} คน (รวม ${fNum(sum)} บ.)\n`;
             });
 
-            txt += `\n## 3. ความถี่การใช้บริการ (Frequency Distribution)\n`;
-            Object.keys(freqDist).map(Number).sort((a,b)=>a-b).slice(0, 10).forEach(k => {
-                txt += `- มา ${k} ครั้ง: ${fInt(freqDist[k])} คน\n`;
-            });
-            if(Object.keys(freqDist).length > 10) txt += `- ...และอื่นๆ\n`;
-
-            txt += `\n## 4. ยอดขายตามหมวดหมู่ (Top Categories)\n`;
-            topCats.forEach(([c, s]) => {
-                txt += `- ${c}: ${fNum(s)} บาท\n`;
+            prompt += `\n--- 3. Visit Frequency (ความถี่การใช้บริการ) ---\n`;
+            const freqMap = processedCustomers.reduce((acc, c) => { acc[c.visits.size] = (acc[c.visits.size]||0) + 1; return acc; }, {});
+            Object.keys(freqMap).sort((a,b)=>a-b).forEach(f => {
+                prompt += `- มา ${f} ครั้ง: ${fInt(freqMap[f])} คน\n`;
             });
 
-            txt += `\n## 5. 10 อันดับบริการยอดฮิต (Top Items)\n`;
-            txt += `Format: [ชื่อรายการ] | ยอดขาย | จำนวนขาย | ราคาเฉลี่ย | ลูกค้าไม่ซ้ำ\n`;
-            topItems.forEach(([n, d], i) => {
-                const avg = d.sales / d.qty;
-                txt += `${i+1}. [${n}] | ${fNum(d.sales)} บ. | ${fInt(d.qty)} ครั้ง | ~${fNum(avg)} บ. | ${fInt(d.hns.size)} คน\n`;
+            prompt += `\n--- 4. Category Performance (ยอดขายแยกตามหมวดหมู่ - Top 5) ---\n`;
+            const catData = filteredData.reduce((acc, r) => {
+                const c = getCategoryForRow(r);
+                acc[c] = (acc[c]||0) + r['ยอดชำระ'];
+                return acc;
+            }, {});
+            Object.entries(catData).sort((a,b)=>b[1]-a[1]).slice(0, 5).forEach(([k,v]) => {
+                prompt += `- ${k}: ${fNum(v)} บาท\n`;
             });
 
-            txt += `\n---------------------------------\n`;
-            txt += `คำถามสำหรับการวิเคราะห์ (Actionable Insights):\n`;
-            txt += `1. [Trend Analysis] จากข้อมูลรายเดือน (ยอดขาย vs จำนวนลูกค้าใหม่/เก่า) ธุรกิจกำลังเติบโต ถดถอย หรือทรงตัว? เพราะอะไร?\n`;
-            txt += `2. [Customer Strategy] สัดส่วนรายได้จากลูกค้าใหม่ vs เก่า เป็นอย่างไร? ควรเน้นหาใหม่หรือรักษาเก่า?\n`;
-            txt += `3. [Product Strategy] จาก Top Items และ Categories ควรจัดโปรโมชั่นแบบไหน? สินค้าตัวไหนเป็น Magnet ตัวไหนทำกำไร?\n`;
-            txt += `4. [Next Steps] ขอ 3 สิ่งที่ผู้บริหารคลินิกควรทำทันทีในเดือนหน้า\n`;
+            prompt += `\n--- 5. Top 10 Services (10 อันดับบริการยอดฮิต) ---\n`;
+            const itemStats = filteredData.reduce((acc, r) => {
+                if(r['ยอดชำระ'] > 0 && r['รายการ']) {
+                    if(!acc[r['รายการ']]) acc[r['รายการ']] = { rev:0, qty:0 };
+                    acc[r['รายการ']].rev += r['ยอดชำระ'];
+                    acc[r['รายการ']].qty++;
+                }
+                return acc;
+            }, {});
+            Object.entries(itemStats).sort((a,b)=>b[1].rev - a[1].rev).slice(0, 10).forEach(([k,v], i) => {
+                prompt += `${i+1}. ${k} | ยอดขาย: ${fNum(v.rev)} บ. | จำนวน: ${fInt(v.qty)} ครั้ง\n`;
+            });
 
-            document.getElementById('aiSummaryText').value = txt;
-            openModal('aiSummaryModal');
-        }
-        
-        function copyAIPrompt(btn) {
-            const t = document.getElementById('aiSummaryText');
-            t.select();
-            t.setSelectionRange(0, 99999); // For mobile devices
-            try {
-                document.execCommand('copy');
-            } catch (err) {
-                console.error('Fallback copy failed', err);
-            }
-            const oldText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว';
-            setTimeout(() => btn.innerHTML = oldText, 2000);
+            prompt += `\nStrategic Analysis Questions:\n1. จากสัดส่วนรายได้ลูกค้าใหม่ vs เก่า ควรปรับทิศทางการยิงโฆษณาอย่างไร?\n2. บริการใดใน Top 10 ที่ควรทำ Upsell คู่กับกลุ่ม Biostimulators?\n3. กลุ่มลูกค้า 0-2k มีโอกาสพัฒนาเป็นกลุ่ม High-spending ได้อย่างไร?\n4. แนะนำโปรโมชั่นเพื่อดึงดูดลูกค้าที่มาเพียง 1 ครั้งให้กลับมาซ้ำ`;
+
+            document.getElementById('aiText').value = prompt;
+            openModal('aiModal');
         }
 
+        function showFrequencySummary() {
+            const freqMap = processedCustomers.reduce((acc, c) => { acc[c.visits.size] = (acc[c.visits.size]||0) + 1; return acc; }, {});
+            let html = `<table><thead><tr><th>มา (ครั้ง)</th><th style="text-align:right">จำนวนคน</th></tr></thead><tbody>`;
+            Object.keys(freqMap).sort((a,b)=>a-b).forEach(f => { html += `<tr><td>${f} ครั้ง</td><td style="text-align:right; font-weight:700">${freqMap[f].toLocaleString()}</td></tr>`; });
+            document.getElementById('freqModalBody').innerHTML = html + `</tbody></table>`;
+            openModal('freqModal');
+        }
+
+        function openModal(id) { document.getElementById(id).style.display = 'block'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function populateSegmentFilter() { document.getElementById('segmentFilter').innerHTML = '<option value="all">แสดงทั้งหมด</option>' + PRICE_RANGES.map(r => `<option value="${r.label}">${r.label}</option>`).join(''); }
+        function filterBySegment(label) { document.getElementById('segmentFilter').value = label; renderDetailsTable(); }
+        function copyToClipboard() { const area = document.getElementById('aiText'); area.select(); document.execCommand('copy'); alert('คัดลอกข้อมูลเรียบร้อยแล้ว'); }
+
+        function exportPDF() {
+            const element = document.getElementById('dashboardView');
+            const width = element.offsetWidth;
+            const height = element.offsetHeight;
+            const opt = {
+                margin: 0, filename: 'Clinic_Strategic_Report.pdf', image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'px', format: [width + 40, height + 40], orientation: width > height ? 'l' : 'p' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        window.onclick = function(e) { if(e.target.className === 'modal') closeModal(e.target.id); }
     </script>
 </body>
 </html>
