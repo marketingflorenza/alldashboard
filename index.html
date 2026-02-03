@@ -122,6 +122,9 @@
         .seg-label { font-weight: 700; font-size: 0.85rem; display: flex; justify-content: space-between; margin-bottom: 8px; }
         .seg-val { font-size: 1.1rem; font-weight: 700; color: var(--primary-color); }
         
+        .clickable { color: var(--primary-color); font-weight: 600; cursor: pointer; text-decoration: none; }
+        .clickable:hover { text-decoration: underline; }
+
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
         .modal-content { background: white; margin: 5vh auto; width: 90%; max-width: 1100px; border-radius: 20px; display: flex; flex-direction: column; max-height: 90vh; animation: slideIn 0.3s; }
         .modal-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
@@ -215,9 +218,10 @@
                                 <tr id="categoryTableHead">
                                     <th>หมวดหมู่</th>
                                     <th>ตัวอย่างสินค้า (Items)</th>
-                                    <th style="text-align:center">HN ไม่ซ้ำ</th>
+                                    <th style="text-align:center">ลูกค้าทั้งหมด</th>
+                                    <th style="text-align:center; color:#10b981;">จ่ายเงิน</th>
+                                    <th style="text-align:center; color:#6366f1;">ตัดคอร์ส</th>
                                     <th style="text-align:right">ยอดรวม</th>
-                                    <th style="text-align:center">กลับมาซ้ำ</th>
                                     <th style="text-align:center">Drilldown</th>
                                 </tr>
                             </thead>
@@ -578,30 +582,47 @@
             return 'General / Others';
         }
 
+        // --- UPDATED FUNCTION HERE ---
         function updateCategoryStatsTable() {
             const getCatData = (data) => data.reduce((acc, r) => {
                 const c = getCategoryForRow(r);
-                if(!acc[c]) acc[c] = { rev:0, hn:new Set(), items: new Set(), visits: {} };
+                if(!acc[c]) acc[c] = { rev:0, items: new Set(), customers: {} };
                 acc[c].rev += r['ยอดชำระ'];
-                if(r.HN) {
-                    acc[c].hn.add(r.HN);
-                    if(r['วันที่ขาย']) (acc[c].visits[r.HN] = acc[c].visits[r.HN]||new Set()).add(r['วันที่ขาย']);
-                }
                 if(r['รายการ']) acc[c].items.add(r['รายการ']);
+                if(r.HN) {
+                    if(!acc[c].customers[r.HN]) acc[c].customers[r.HN] = 0;
+                    acc[c].customers[r.HN] += r['ยอดชำระ'];
+                }
                 return acc;
             }, {});
 
-            const cur = getCatData(filteredData);
-            const prev = compareData.length > 0 ? getCatData(compareData) : null;
-            const sortedKeys = Object.keys(cur).sort((a,b) => cur[b].rev - cur[a].rev);
+            const curData = getCatData(filteredData);
+            const prevData = compareData.length > 0 ? getCatData(compareData) : null;
+            const sortedKeys = Object.keys(curData).sort((a,b) => curData[b].rev - curData[a].rev);
             
             const head = document.getElementById('categoryTableHead');
-            head.innerHTML = `<th>หมวดหมู่</th><th>Items</th><th style="text-align:center">HN ไม่ซ้ำ</th><th style="text-align:right">ยอดรวม</th>` + (prev ? `<th style="text-align:right">ช่วงก่อน</th><th style="text-align:center">Change</th>` : ``) + `<th style="text-align:center">Drilldown</th>`;
+            let headerHTML = `<th>หมวดหมู่</th>
+                              <th>Items</th>
+                              <th style="text-align:center">ลูกค้าทั้งหมด</th>
+                              <th style="text-align:center; color:#10b981;">จ่ายเงิน</th>
+                              <th style="text-align:center; color:#6366f1;">ตัดคอร์ส</th>
+                              <th style="text-align:right">ยอดรวม</th>`;
+            
+            if(prevData) {
+                headerHTML += `<th style="text-align:right">ช่วงก่อน</th><th style="text-align:center">Change</th>`;
+            }
+            headerHTML += `<th style="text-align:center">Drilldown</th>`;
+            head.innerHTML = headerHTML;
 
             document.getElementById('categoryStatsBody').innerHTML = sortedKeys.map(k => {
-                const c = cur[k];
-                const p = prev ? prev[k] : null;
-                const repeatCount = Object.values(c.visits).filter(x => x.size > 1).length;
+                const c = curData[k];
+                const p = prevData ? prevData[k] : null;
+                
+                const allHNs = Object.keys(c.customers);
+                const totalCust = allHNs.length;
+                const payingCust = allHNs.filter(hn => c.customers[hn] > 0).length;
+                const zeroCust = totalCust - payingCust;
+
                 let changeHtml = '';
                 if(p) {
                     const diff = c.rev - p.rev;
@@ -612,10 +633,12 @@
                 return `<tr>
                     <td style="font-weight:700">${k}</td>
                     <td style="color:#666; font-size:0.7rem;">${Array.from(c.items).slice(0,2).join(', ')}..</td>
-                    <td style="text-align:center">${c.hn.size}</td>
+                    <td style="text-align:center; font-weight:600;">${totalCust}</td>
+                    <td style="text-align:center; color:#10b981; font-weight:600;">${payingCust}</td>
+                    <td style="text-align:center; color:#6366f1; font-weight:600;">${zeroCust}</td>
                     <td style="text-align:right; font-weight:700">${c.rev.toLocaleString()}</td>
                     ${changeHtml}
-                    <td style="text-align:center">${repeatCount} <button class="btn-sm" onclick="showCategoryCustomers('${k}')">ดูรายชื่อ</button></td>
+                    <td style="text-align:center"><button class="btn-sm" onclick="showCategoryCustomers('${k}')">ดูรายชื่อ</button></td>
                 </tr>`;
             }).join('');
         }
@@ -691,7 +714,7 @@
 
         function showFrequencyCustomers(freq) {
             const list = processedCustomers.filter(c => c.visits.size === freq)
-                                         .sort((a,b) => b.total - a.total);
+                                    .sort((a,b) => b.total - a.total);
 
             document.getElementById('listModalTitle').textContent = `👥 รายชื่อลูกค้าที่มาใช้บริการ ${freq} ครั้ง (${list.length} คน)`;
             document.getElementById('listModalBody').innerHTML = `
@@ -739,9 +762,54 @@
                 if(!acc[r.HN]) acc[r.HN] = { name: r['ชื่อ-สกุล'] || '-', phone: r['เบอร์โทร'] || '-', total: 0, items: new Set() };
                 acc[r.HN].total += r['ยอดชำระ']; acc[r.HN].items.add(r['รายการ']); return acc;
             }, {});
-            const sorted = Object.entries(hnGroups).map(([hn, data]) => ({ hn, ...data })).sort((a,b) => b.total - a.total);
-            document.getElementById('listModalTitle').textContent = `📂 หมวดหมู่: ${catName}`;
-            document.getElementById('listModalBody').innerHTML = `<table style="width:100%"><thead><tr><th>HN</th><th>ชื่อ / เบอร์โทร</th><th style="text-align:right">ยอดรวมหมวด</th><th>รายการที่ทำ</th></tr></thead><tbody>${sorted.map(c => `<tr><td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td><td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td><td style="text-align:right; font-weight:700">${c.total.toLocaleString()}</td><td style="font-size:0.75rem; color:#666">${Array.from(c.items).join(', ')}</td></tr>`).join('')}</tbody></table>`;
+
+            // 1. Convert to array
+            const allCustomers = Object.entries(hnGroups).map(([hn, data]) => ({ hn, ...data }));
+
+            // 2. Split into Paying and Zero (Course cut)
+            const paying = allCustomers.filter(c => c.total > 0).sort((a,b) => b.total - a.total);
+            const zero = allCustomers.filter(c => c.total === 0).sort((a,b) => a.name.localeCompare(b.name));
+
+            let html = `<div style="padding: 10px;">`;
+
+            // Table 1: Paying Customers
+            if (paying.length > 0) {
+                html += `<h4 style="margin-top:0; color:#10b981; border-bottom: 2px solid #10b981; padding-bottom: 5px;">💰 ลูกค้าที่มียอดชำระ (${paying.length} คน)</h4>`;
+                html += `<table style="width:100%; margin-bottom: 20px;">
+                    <thead><tr><th style="width:50px; text-align:center">#</th><th>HN</th><th>ชื่อ / เบอร์โทร</th><th style="text-align:right">ยอดรวมหมวด</th><th>รายการที่ทำ</th></tr></thead>
+                    <tbody>
+                    ${paying.map((c, i) => `
+                        <tr>
+                            <td style="text-align:center; color:#666;">${i + 1}</td>
+                            <td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td>
+                            <td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td>
+                            <td style="text-align:right; font-weight:700; color:#10b981;">${c.total.toLocaleString()}</td>
+                            <td style="font-size:0.75rem; color:#666">${Array.from(c.items).join(', ')}</td>
+                        </tr>`).join('')}
+                    </tbody></table>`;
+            }
+
+            // Table 2: Zero / Course Cut
+            if (zero.length > 0) {
+                html += `<h4 style="margin-top:20px; color:#6366f1; border-bottom: 2px solid #6366f1; padding-bottom: 5px;">📉 ลูกค้าตัดคอร์ส / ทำฟรี (${zero.length} คน)</h4>`;
+                html += `<table style="width:100%">
+                    <thead><tr><th style="width:50px; text-align:center">#</th><th>HN</th><th>ชื่อ / เบอร์โทร</th><th style="text-align:right">สถานะ</th><th>รายการที่ทำ</th></tr></thead>
+                    <tbody>
+                    ${zero.map((c, i) => `
+                        <tr>
+                            <td style="text-align:center; color:#666;">${i + 1}</td>
+                            <td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td>
+                            <td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td>
+                            <td style="text-align:right;"><span class="badge neu">ตัดคอร์ส/ฟรี</span></td>
+                            <td style="font-size:0.75rem; color:#666">${Array.from(c.items).join(', ')}</td>
+                        </tr>`).join('')}
+                    </tbody></table>`;
+            }
+
+            html += `</div>`;
+
+            document.getElementById('listModalTitle').textContent = `📂 หมวดหมู่: ${catName} (รวม ${allCustomers.length} คน)`;
+            document.getElementById('listModalBody').innerHTML = html;
             openModal('listModal');
         }
 
