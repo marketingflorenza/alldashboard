@@ -191,13 +191,47 @@
                 <div class="charts-grid">
                     <div class="chart-box"><h4>📈 ยอดขายรายวัน (เทียบช่วงเวลา)</h4><canvas id="dailyChart"></canvas></div>
                     <div class="chart-box"><h4>📅 ยอดขายรายเดือน</h4><canvas id="monthlyChart"></canvas></div>
-                    <div class="chart-box"><h4>📊 Performance Matrix (Top 10 Items)</h4><canvas id="performanceMatrixChart"></canvas></div>
+                    <div class="chart-box">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                            <h4 style="margin:0;">📊 Performance Matrix (Top 10 Items)</h4>
+                            <span style="font-size: 0.65rem; color: #9ca3af;"><i class="fa-solid fa-circle-info"></i> ขนาดวงกลมตามรายได้รวม</span>
+                        </div>
+                        <canvas id="performanceMatrixChart"></canvas>
+                    </div>
                     <div class="chart-box">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                             <h4 style="margin:0;">🔄 ความถี่การใช้บริการ (คลิกที่แท่งเพื่อดูรายชื่อ)</h4>
                             <button class="btn-sm" onclick="showFrequencySummary()"><i class="fa-solid fa-list-ol"></i> ตารางสรุป</button>
                         </div>
                         <canvas id="frequencyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="section-header"><h2><i class="fa-solid fa-users-gear"></i> การวิเคราะห์ลูกค้าเชิงลึก (รายเดือน)</h2></div>
+                <div class="charts-grid">
+                    <div class="chart-box" style="grid-column: span 2; height: 450px;">
+                        <h4>📊 แนวโน้มลูกค้าใหม่ vs ลูกค้าเก่า (รายเดือน)</h4>
+                        <canvas id="monthlyCustomerTrendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <div class="table-header"><h3>📅 ตารางเปรียบเทียบพฤติกรรมลูกค้า (รายเดือน)</h3></div>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>เดือน/ปี</th>
+                                    <th style="text-align:right">ยอดรวม (บาท)</th>
+                                    <th style="text-align:center">ลูกค้าทั้งหมด</th>
+                                    <th style="text-align:center; color:#f59e0b;">ลูกค้าใหม่</th>
+                                    <th style="text-align:center; color:#3b82f6;">ลูกค้าเก่า</th>
+                                    <th style="text-align:center; color:#10b981;">จ่ายเงิน (คน)</th>
+                                    <th style="text-align:center; color:#ec4899;">ตัดคอร์ส (คน)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="monthlyAnalysisBody"></tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -380,6 +414,7 @@
             updatePerformanceMatrix();
             renderDetailsTable();
             populateSegmentFilter();
+            renderMonthlyDetailedAnalysis();
         }
 
         function processCustomerData() {
@@ -504,12 +539,10 @@
             }).join('');
         }
 
-        // --- Requested Classification Logic (Standardized) ---
         function getCategoryForRow(row) {
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ';
 
-            // --- 1. Specific / New Requests (High Priority) ---
             if (name.includes('ultra for mer')) return 'Ultrafomer';
             if (name.includes('aesthefill') || name.includes('aesthe fill')) return 'Aesthe Fill'; 
             if (name.includes('profhilo')) return 'Profhilo';
@@ -517,44 +550,33 @@
             if (name.includes('q switch') || name.includes('q-switch')) return 'Q Switch';
             if (name.includes('bsam')) return 'BSAM';
             if (name.includes('keloid')) return 'Keloid';
-
             if (name.includes('morpheus')) return 'Morpheus8'; 
             if (name.includes('nad')) return 'NAD'; 
             if (name.includes('ปากกาลดน้ำหนัก') || name.includes('weight loss pen') || name.includes('saxenda')) return 'ปากกาลดน้ำหนัก'; 
             if (name.includes('peelling') || name.includes('peeling')) return 'Peelling'; 
-
             if (name.includes('sculptra')) return 'Sculptra';
             if (name.includes('exosome')) return 'Exosome';
             if (name.includes('rejuran')) return 'Rejuran';
             if (name.includes('juvelook')) return 'Juvelook';
             if (name.includes('subsicion') || name.includes('subcision')) return 'Subsicion';
             if (name.includes('antidark')) return 'Antidark';
-
             if (name.includes('helios')) return 'Helios';
             if (name.includes('vella') || name.includes('vela')) return 'Vela';
             if (name.includes('viva')) return 'Viva';
             if (name.includes('virgin repair') || name.includes('vergin repair') || name.includes('เก้าอี้มหัสจรรย์') || name.includes('เก้าอี้มหัศจรรย์')) return 'Virgin Repair';
-            
             if (name.includes('body s')) return 'Body S';
             if (name.includes('g5')) return 'G5';
             if (name.includes('transamin') || name.includes('whitening program')) return 'Transamin';
             if (name.includes('rf')) return 'RF';
             if (name.includes('gc 50000') || name.includes('vitc') || name.includes('push vit c')) return 'Push';
-            
             if (name.includes('ฉีดเปปไทด์')) return 'Peptide';
             if (name.includes('evo')) return 'EVO';
             if (name.includes('cpl')) return 'CPL';
             if (name.includes('วงเงินเหลือ') || name.includes('บัตร bornsong card 35,000')) return 'วงเงินเหลือ';
             if (name.includes('liporase')) return 'Liporase';
             if (name.includes('pms')) return 'PMS';
-
-            // --- 2. Meso Grouping ---
             if (name.includes('chanel') || name.includes("l'ebss") || name.includes('inno') || name.includes('sakura') || name.includes('meso') || name.includes('made') || name.includes('ฉีดหน้า') || name.includes('prp') || name.includes('guna collagen') || name.includes('derma care') || name.includes('reborn glass skin') || name.includes('seenskin') || name.includes('ssdn')) return 'Meso';
-
-            // --- 3. Drip Grouping ---
             if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || name.includes('vit-c') || name.includes('glow vital white') || name.includes('bornie secret white') || name.includes('extra white plus') || name.includes('onny white') || name.includes('oppa white') || name.includes('glow super glow')) return 'Drip';
-
-            // --- 4. Existing Categories ---
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
             if (name.includes('ultraformer') || name.includes('ultra fromer') || name.includes('ultra former')) return 'Ultraformer';
             if (name.includes('co2')) return 'Co2';
@@ -571,13 +593,10 @@
             if (name.includes('treatment') || name.includes('ทรีทเมนท์') || name.includes('นวด') || name.includes('spa') || name.includes('mark collagen') || name.includes('cryo')) return 'Treatment';
             if (name.includes('ค่าแพทย์') || name.includes('df') || name.includes('doctor') || name.includes('consult') || name.includes('บริการ') || name.includes('service')) return 'Consultation / Service';
             if (name.includes('product') || name.includes('cream') || name.includes('gel') || name.includes('foam') || name.includes('sunscreen') || name.includes('set')) return 'Products / Skincare';
-
             return 'General / Others';
         }
 
-        // --- UPDATED FUNCTION: เพิ่มคอลัมน์ลูกค้าใหม่ ---
         function updateCategoryStatsTable() {
-            // 1. ดึงวันที่เริ่มต้น-สิ้นสุด เพื่อเช็คสถานะลูกค้าใหม่
             const startStr = document.getElementById('startDate').value;
             const endStr = document.getElementById('endDate').value;
             const start = startStr ? new Date(startStr) : new Date(0);
@@ -586,7 +605,6 @@
 
             const getCatData = (data) => data.reduce((acc, r) => {
                 const c = getCategoryForRow(r);
-                // เพิ่ม newCusts (Set) เพื่อเก็บ HN ลูกค้าใหม่
                 if(!acc[c]) acc[c] = { rev:0, items: new Set(), customers: {}, newCusts: new Set() };
                 
                 acc[c].rev += r['ยอดชำระ'];
@@ -594,8 +612,6 @@
                 if(r.HN) {
                     if(!acc[c].customers[r.HN]) acc[c].customers[r.HN] = 0;
                     acc[c].customers[r.HN] += r['ยอดชำระ'];
-
-                    // Logic: ถ้าวันลงทะเบียนอยู่ในช่วงที่เลือก ถือว่าเป็นลูกค้าใหม่
                     if (r.__regDate && r.__regDate >= start && r.__regDate <= end) {
                         acc[c].newCusts.add(r.HN);
                     }
@@ -608,8 +624,6 @@
             const sortedKeys = Object.keys(curData).sort((a,b) => curData[b].rev - curData[a].rev);
             
             const head = document.getElementById('categoryTableHead');
-            
-            // 2. ปรับ Header เพิ่มคอลัมน์ "ลูกค้าใหม่"
             let headerHTML = `<th>หมวดหมู่</th>
                               <th>ตัวอย่างสินค้า (Items)</th>
                               <th style="text-align:center">ลูกค้าทั้งหมด</th>
@@ -630,7 +644,7 @@
                 
                 const allHNs = Object.keys(c.customers);
                 const totalCust = allHNs.length;
-                const newCustCount = c.newCusts.size; // จำนวนลูกค้าใหม่
+                const newCustCount = c.newCusts.size;
                 const payingCust = allHNs.filter(hn => c.customers[hn] > 0).length;
                 const zeroCust = totalCust - payingCust;
 
@@ -641,7 +655,6 @@
                     changeHtml = `<td style="text-align:right; font-size:0.75rem">${p.rev.toLocaleString()}</td><td style="text-align:center"><span class="badge ${pct>=0?'pos':'neg'}">${pct>=0?'+':''}${pct.toFixed(0)}%</span></td>`;
                 }
 
-                // 3. แสดงผลข้อมูลในแถว (Row)
                 return `<tr>
                     <td style="font-weight:700">${k}</td>
                     <td style="color:#666; font-size:0.7rem;">${Array.from(c.items).slice(0,2).join(', ')}..</td>
@@ -657,7 +670,7 @@
         }
 
         function renderCharts() {
-            Object.values(charts).forEach(c => c.destroy());
+            Object.values(charts).forEach(c => { if(c && typeof c.destroy === 'function') c.destroy(); });
             
             const getDaily = (data) => data.reduce((acc, r) => {
                 const d = r['วันที่ขาย'];
@@ -691,16 +704,78 @@
             const monthly = filteredData.reduce((acc, r) => { const key = `${r.__date.getFullYear()}-${String(r.__date.getMonth()+1).padStart(2,'0')}`; acc[key] = (acc[key]||0) + r['ยอดชำระ']; return acc; }, {});
             charts.monthly = new Chart(document.getElementById('monthlyChart'), { type: 'bar', data: { labels: Object.keys(monthly).sort(), datasets: [{ label: 'ยอดขายรายเดือน', data: Object.keys(monthly).sort().map(m => monthly[m]), backgroundColor: '#3b82f6' }] }, options: { responsive: true, maintainAspectRatio: false } });
             
-            const items = filteredData.reduce((acc, r) => {
-                if(r['ยอดชำระ'] > 0 && r['รายการ']) {
+            const itemStats = filteredData.reduce((acc, r) => {
+                if(r['รายการ']) {
                     if(!acc[r['รายการ']]) acc[r['รายการ']] = { rev:0, qty:0 };
                     acc[r['รายการ']].rev += r['ยอดชำระ'];
                     acc[r['รายการ']].qty++;
                 }
                 return acc;
             }, {});
-            const sortedItems = Object.entries(items).sort((a,b)=>b[1].rev - a[1].rev).slice(0, 10);
-            charts.perf = new Chart(document.getElementById('performanceMatrixChart'), { type: 'bubble', data: { datasets: [{ label: 'Top Items', data: sortedItems.map(([k,v]) => ({label: k, x:v.qty, y:v.rev/v.qty, r:Math.min(20, Math.sqrt(v.rev)/20+5)})), backgroundColor: 'rgba(236, 72, 153, 0.6)' }] }, options: { responsive: true, maintainAspectRatio: false } });
+
+            const sortedPerformance = Object.entries(itemStats)
+                .sort((a,b) => b[1].rev - a[1].rev)
+                .slice(0, 10);
+
+            const avgQty = sortedPerformance.reduce((s, x) => s + x[1].qty, 0) / sortedPerformance.length;
+            const avgPrice = sortedPerformance.reduce((s, x) => s + (x[1].rev / x[1].qty), 0) / sortedPerformance.length;
+
+            charts.perf = new Chart(document.getElementById('performanceMatrixChart'), {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: 'Top 10 Services',
+                        data: sortedPerformance.map(([k, v]) => {
+                            const unitPrice = v.rev / v.qty;
+                            return {
+                                x: v.qty,
+                                y: unitPrice,
+                                r: Math.min(25, Math.sqrt(v.rev) / 25 + 5),
+                                label: k,
+                                totalRev: v.rev
+                            };
+                        }),
+                        backgroundColor: (context) => {
+                            const item = context.raw;
+                            if(!item) return 'rgba(99, 102, 241, 0.6)';
+                            if(item.x >= avgQty && item.y >= avgPrice) return 'rgba(16, 185, 129, 0.7)'; // Star (Green)
+                            if(item.x >= avgQty && item.y < avgPrice) return 'rgba(59, 130, 246, 0.7)';  // Cash Cow (Blue)
+                            if(item.x < avgQty && item.y >= avgPrice) return 'rgba(245, 158, 11, 0.7)'; // Premium Niche (Orange)
+                            return 'rgba(236, 72, 153, 0.7)'; // Underperform (Pink)
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const r = ctx.raw;
+                                    return [
+                                        `รายการ: ${r.label}`,
+                                        `ยอดขายรวม: ${r.totalRev.toLocaleString()} บ.`,
+                                        `จำนวน: ${r.x} ครั้ง`,
+                                        `ราคาเฉลี่ย: ${Math.round(r.y).toLocaleString()} บ.`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            title: { display: true, text: 'จำนวนครั้งที่ขาย (Volume)', font: { size: 10 } },
+                            grid: { color: (ctx) => ctx.tick.value === Math.round(avgQty) ? '#333' : '#eee' }
+                        },
+                        y: { 
+                            title: { display: true, text: 'ราคาเฉลี่ยต่อหน่วย (Avg Price)', font: { size: 10 } },
+                            grid: { color: (ctx) => ctx.tick.value === Math.round(avgPrice) ? '#333' : '#eee' }
+                        }
+                    }
+                }
+            });
 
             const freqMap = processedCustomers.reduce((acc, c) => { acc[c.visits.size] = (acc[c.visits.size]||0) + 1; return acc; }, {});
             const freqLabels = Object.keys(freqMap).sort((a,b)=>a-b);
@@ -725,10 +800,85 @@
             });
         }
 
-        function showFrequencyCustomers(freq) {
-            const list = processedCustomers.filter(c => c.visits.size === freq)
-                                    .sort((a,b) => b.total - a.total);
+        function renderMonthlyDetailedAnalysis() {
+            const monthlyStats = rawData.reduce((acc, r) => {
+                const monthKey = `${r.__date.getFullYear()}-${String(r.__date.getMonth() + 1).padStart(2, '0')}`;
+                if (!acc[monthKey]) {
+                    acc[monthKey] = {
+                        month: monthKey,
+                        revenue: 0,
+                        allHNs: new Set(),
+                        newHNs: new Set(),
+                        oldHNs: new Set(),
+                        payingHNs: new Set(),
+                        courseCutHNs: new Set(),
+                        userSpendInMonth: {} 
+                    };
+                }
+                const m = acc[monthKey];
+                m.revenue += r['ยอดชำระ'];
+                if (r.HN) {
+                    m.allHNs.add(r.HN);
+                    if (!m.userSpendInMonth[r.HN]) m.userSpendInMonth[r.HN] = 0;
+                    m.userSpendInMonth[r.HN] += r['ยอดชำระ'];
+                    const regMonth = r.__regDate ? `${r.__regDate.getFullYear()}-${String(r.__regDate.getMonth() + 1).padStart(2, '0')}` : null;
+                    if (regMonth === monthKey) {
+                        m.newHNs.add(r.HN);
+                    } else {
+                        m.oldHNs.add(r.HN);
+                    }
+                }
+                return acc;
+            }, {});
 
+            const sortedMonths = Object.keys(monthlyStats).sort();
+            sortedMonths.forEach(mKey => {
+                const m = monthlyStats[mKey];
+                Object.entries(m.userSpendInMonth).forEach(([hn, total]) => {
+                    if (total > 0) { m.payingHNs.add(hn); } else { m.courseCutHNs.add(hn); }
+                });
+            });
+
+            if(charts.monthlyCustTrend) charts.monthlyCustTrend.destroy();
+            const ctx = document.getElementById('monthlyCustomerTrendChart').getContext('2d');
+            charts.monthlyCustTrend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedMonths,
+                    datasets: [
+                        { label: 'ลูกค้าใหม่', data: sortedMonths.map(m => monthlyStats[m].newHNs.size), borderColor: '#f59e0b', backgroundColor: '#f59e0b', fill: false, tension: 0.2 },
+                        { label: 'ลูกค้าเก่า', data: sortedMonths.map(m => monthlyStats[m].oldHNs.size), borderColor: '#3b82f6', backgroundColor: '#3b82f6', fill: false, tension: 0.2 },
+                        { label: 'ลูกค้าที่จ่ายเงิน', data: sortedMonths.map(m => monthlyStats[m].payingHNs.size), borderColor: '#10b981', backgroundColor: '#10b981', fill: false, tension: 0.2 },
+                        { label: 'ลูกค้าตัดคอร์ส', data: sortedMonths.map(m => monthlyStats[m].courseCutHNs.size), borderColor: '#ec4899', backgroundColor: '#ec4899', fill: false, tension: 0.2 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            const tableBody = document.getElementById('monthlyAnalysisBody');
+            tableBody.innerHTML = sortedMonths.slice().reverse().map(mKey => {
+                const m = monthlyStats[mKey];
+                return `
+                    <tr>
+                        <td style="font-weight:700">${mKey}</td>
+                        <td style="text-align:right; font-weight:700">${m.revenue.toLocaleString()}</td>
+                        <td style="text-align:center">${m.allHNs.size.toLocaleString()}</td>
+                        <td style="text-align:center; color:#f59e0b; font-weight:600">${m.newHNs.size.toLocaleString()}</td>
+                        <td style="text-align:center; color:#3b82f6; font-weight:600">${m.oldHNs.size.toLocaleString()}</td>
+                        <td style="text-align:center; color:#10b981; font-weight:600">${m.payingHNs.size.toLocaleString()}</td>
+                        <td style="text-align:center; color:#ec4899; font-weight:600">${m.courseCutHNs.size.toLocaleString()}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function showFrequencyCustomers(freq) {
+            const list = processedCustomers.filter(c => c.visits.size === freq).sort((a,b) => b.total - a.total);
             document.getElementById('listModalTitle').textContent = `👥 รายชื่อลูกค้าที่มาใช้บริการ ${freq} ครั้ง (${list.length} คน)`;
             document.getElementById('listModalBody').innerHTML = `
                 <table style="width:100%">
@@ -776,16 +926,11 @@
                 acc[r.HN].total += r['ยอดชำระ']; acc[r.HN].items.add(r['รายการ']); return acc;
             }, {});
 
-            // 1. Convert to array
             const allCustomers = Object.entries(hnGroups).map(([hn, data]) => ({ hn, ...data }));
-
-            // 2. Split into Paying and Zero (Course cut)
             const paying = allCustomers.filter(c => c.total > 0).sort((a,b) => b.total - a.total);
             const zero = allCustomers.filter(c => c.total === 0).sort((a,b) => a.name.localeCompare(b.name));
 
             let html = `<div style="padding: 10px;">`;
-
-            // Table 1: Paying Customers
             if (paying.length > 0) {
                 html += `<h4 style="margin-top:0; color:#10b981; border-bottom: 2px solid #10b981; padding-bottom: 5px;">💰 ลูกค้าที่มียอดชำระ (${paying.length} คน)</h4>`;
                 html += `<table style="width:100%; margin-bottom: 20px;">
@@ -802,7 +947,6 @@
                     </tbody></table>`;
             }
 
-            // Table 2: Zero / Course Cut
             if (zero.length > 0) {
                 html += `<h4 style="margin-top:20px; color:#6366f1; border-bottom: 2px solid #6366f1; padding-bottom: 5px;">📉 ลูกค้าตัดคอร์ส / ทำฟรี (${zero.length} คน)</h4>`;
                 html += `<table style="width:100%">
@@ -818,7 +962,6 @@
                         </tr>`).join('')}
                     </tbody></table>`;
             }
-
             html += `</div>`;
 
             document.getElementById('listModalTitle').textContent = `📂 หมวดหมู่: ${catName} (รวม ${allCustomers.length} คน)`;
@@ -848,6 +991,13 @@
             const fInt = (n) => n.toLocaleString(undefined, {maximumFractionDigits: 0});
             const cur = calculateMetrics(filteredData, processedCustomers);
             
+            // ดึงช่วงวันที่สำหรับการเช็คลูกค้าใหม่
+            const startStr = document.getElementById('startDate').value;
+            const endStr = document.getElementById('endDate').value;
+            const start = startStr ? new Date(startStr) : new Date(0);
+            const end = endStr ? new Date(endStr) : new Date();
+            end.setHours(23,59,59);
+
             let prompt = `Role: Clinic Business Strategist\n`;
             prompt += `Task: Analyze the clinic performance data and suggest actionable growth strategies.\n\n`;
             prompt += `--- 1. Business Overview (ภาพรวมธุรกิจ) ---\n`;
@@ -876,14 +1026,28 @@
                 prompt += `- มา ${f} ครั้ง: ${fInt(freqMap[f])} คน\n`;
             });
 
-            prompt += `\n--- 4. Category Performance (ยอดขายแยกตามหมวดหมู่ - Top 5) ---\n`;
-            const catData = filteredData.reduce((acc, r) => {
+            prompt += `\n--- 4. Category Performance (ยอดขายแยกตามหมวดหมู่ - คัดกรองละเอียด) ---\n`;
+            const catDataDetailed = filteredData.reduce((acc, r) => {
                 const c = getCategoryForRow(r);
-                acc[c] = (acc[c]||0) + r['ยอดชำระ'];
+                if(!acc[c]) acc[c] = { rev:0, customers: {}, newCusts: new Set() };
+                acc[c].rev += r['ยอดชำระ'];
+                if(r.HN) {
+                    if(!acc[c].customers[r.HN]) acc[c].customers[r.HN] = 0;
+                    acc[c].customers[r.HN] += r['ยอดชำระ'];
+                    if (r.__regDate && r.__regDate >= start && r.__regDate <= end) {
+                        acc[c].newCusts.add(r.HN);
+                    }
+                }
                 return acc;
             }, {});
-            Object.entries(catData).sort((a,b)=>b[1]-a[1]).slice(0, 5).forEach(([k,v]) => {
-                prompt += `- ${k}: ${fNum(v)} บาท\n`;
+
+            Object.entries(catDataDetailed).sort((a,b)=>b[1].rev - a[1].rev).forEach(([k,c]) => {
+                const allHNs = Object.keys(c.customers);
+                const totalCust = allHNs.length;
+                const newCustCount = c.newCusts.size;
+                const payingCust = allHNs.filter(hn => c.customers[hn] > 0).length;
+                const zeroCust = totalCust - payingCust;
+                prompt += `- ${k}: ยอด ${fNum(c.rev)} บ. | ลูกค้าทั้งหมด ${totalCust} (ใหม่ ${newCustCount}, จ่ายเงิน ${payingCust}, ตัดคอร์ส/ฟรี ${zeroCust})\n`;
             });
 
             prompt += `\n--- 5. Top 10 Services (10 อันดับบริการยอดฮิต) ---\n`;
@@ -899,8 +1063,39 @@
                 prompt += `${i+1}. ${k} | ยอดขาย: ${fNum(v.rev)} บ. | จำนวน: ${fInt(v.qty)} ครั้ง\n`;
             });
 
-            prompt += `\nStrategic Analysis Questions:\n1. จากสัดส่วนรายได้ลูกค้าใหม่ vs เก่า ควรปรับทิศทางการยิงโฆษณาอย่างไร?\n2. บริการใดใน Top 10 ที่ควรทำ Upsell คู่กับกลุ่ม Biostimulators?\n3. กลุ่มลูกค้า 0-2k มีโอกาสพัฒนาเป็นกลุ่ม High-spending ได้อย่างไร?\n4. แนะนำโปรโมชั่นเพื่อดึงดูดลูกค้าที่มาเพียง 1 ครั้งให้กลับมาซ้ำ`;
+            // --- UPDATED: 6. Monthly Behavior Trends (อิงตามระยะเวลาที่เลือก) ---
+            prompt += `\n--- 6. Monthly Behavior Trends (แนวโน้มพฤติกรรมรายเดือน - ตามระยะเวลาที่เลือก) ---\n`;
+            const monthlyStats = filteredData.reduce((acc, r) => {
+                const monthKey = `${r.__date.getFullYear()}-${String(r.__date.getMonth() + 1).padStart(2, '0')}`;
+                if (!acc[monthKey]) {
+                    acc[monthKey] = { revenue: 0, all: new Set(), new: new Set(), old: new Set(), paying: new Set(), courseCut: new Set(), spendByHN: {} };
+                }
+                const m = acc[monthKey];
+                m.revenue += r['ยอดชำระ'];
+                if (r.HN) {
+                    m.all.add(r.HN);
+                    if (!m.spendByHN[r.HN]) m.spendByHN[r.HN] = 0;
+                    m.spendByHN[r.HN] += r['ยอดชำระ'];
+                    // เช็คสถานะลูกค้าใหม่โดยอิงจากวันลงทะเบียนจริง
+                    const regMonth = r.__regDate ? `${r.__regDate.getFullYear()}-${String(r.__regDate.getMonth() + 1).padStart(2, '0')}` : null;
+                    if (regMonth === monthKey) m.new.add(r.HN); else m.old.add(r.HN);
+                }
+                return acc;
+            }, {});
 
+            Object.keys(monthlyStats).sort().reverse().forEach(mKey => {
+                const m = monthlyStats[mKey];
+                Object.entries(m.spendByHN).forEach(([hn, amt]) => { if(amt > 0) m.paying.add(hn); else m.courseCut.add(hn); });
+                prompt += `- เดือน ${mKey} | ยอดขาย: ${fNum(m.revenue)} บ. | ลูกค้าทั้งหมด: ${m.all.size} (ใหม่: ${m.new.size}, เก่า: ${m.old.size}) | จ่ายเงิน: ${m.paying.size} | ตัดคอร์ส: ${m.courseCut.size}\n`;
+            });
+
+            prompt += `\nStrategic Analysis Questions:\n`;
+            prompt += `1. จากแนวโน้มรายเดือน (Section 6) ยอดขายและสัดส่วนลูกค้าใหม่/เก่ามีทิศทางอย่างไรในช่วงเวลาที่เลือก?\n`;
+            prompt += `2. จาก Performance Matrix (Section 5) บริการใดเป็น 'Star' (Volume สูง Price สูง) และ 'Cash Cow' (Volume สูง Price ต่ำ)?\n`;
+            prompt += `3. วิเคราะห์หมวดหมู่ใน Section 4: หมวดใดที่มีลูกค้าตัดคอร์สสูงเกินไปจนอาจกระทบกระแสเงินสดในอนาคต? หมวดใดที่มีลูกค้าใหม่เข้าหามากที่สุด?\n`;
+            prompt += `4. แนะนำโปรโมชั่นเพื่อดึงดูดลูกค้าที่มาเพียง 1 ครั้งให้กลับมาซ้ำ หรือเปลี่ยนลูกค้าที่มาตัดคอร์สให้ซื้อคอร์สใหม่เพิ่ม\n`;
+
+            document.getElementById('aiText').area = document.getElementById('aiText');
             document.getElementById('aiText').value = prompt;
             openModal('aiModal');
         }
