@@ -295,6 +295,7 @@
         </div>
     </div>
 
+    <!-- Modals -->
     <div id="aiModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3><i class="fa-solid fa-wand-magic-sparkles"></i> AI Strategic Prompt (Detailed Summary)</h3><span class="close-btn" onclick="closeModal('aiModal')">&times;</span></div>
@@ -467,10 +468,7 @@
         }
 
         function renderStats() {
-            const start = new Date(document.getElementById('startDate').value);
-            const end = new Date(document.getElementById('endDate').value);
             const cur = calculateMetrics(filteredData, processedCustomers);
-            
             let prev = null;
             if(document.getElementById('compareToggle').checked && compareData.length > 0) {
                 const cStart = new Date(document.getElementById('compareStartDate').value);
@@ -499,7 +497,6 @@
                     const pct = pVal === 0 ? (val > 0 ? 100 : 0) : (diff / pVal) * 100;
                     const cls = diff > 0 ? 'pos' : (diff < 0 ? 'neg' : 'neu');
                     const icon = diff > 0 ? 'fa-caret-up' : (diff < 0 ? 'fa-caret-down' : 'fa-minus');
-                    
                     const diffTxt = (diff >= 0 ? '+' : '') + diff.toLocaleString(undefined, {
                         minimumFractionDigits: isMoney ? 2 : 0,
                         maximumFractionDigits: isMoney ? 2 : 0
@@ -539,9 +536,18 @@
             }).join('');
         }
 
+        /**
+         * UPDATED Categorization Logic
+         */
         function getCategoryForRow(row) {
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ';
+
+            // --- Priority 1: Specific requested items ---
+            if (name.includes('e-jal')) return 'E-Jal';
+            if (name.includes('ค่าเข้ารับการปรึกษาแพทย์')) return 'ค่าเข้ารับการปรึกษาแพทย์';
+
+            // --- Priority 2: Other services ---
             if (name.includes('ultra for mer')) return 'Ultrafomer';
             if (name.includes('aesthefill') || name.includes('aesthe fill')) return 'Aesthe Fill'; 
             if (name.includes('profhilo')) return 'Profhilo';
@@ -564,8 +570,6 @@
             if (name.includes('viva')) return 'Viva';
             if (name.includes('virgin repair') || name.includes('vergin repair') || name.includes('เก้าอี้มหัสจรรย์') || name.includes('เก้าอี้มหัศจรรย์')) return 'Virgin Repair';
             if (name.includes('body s')) return 'Body S';
-            if (name.includes('E-Jal')) return 'E-Jal';
-            if (name.includes('ค่าเข้ารับการปรึกษาแพทย์,')) return 'ค่าเข้ารับการปรึกษาแพทย์,';
             if (name.includes('g5')) return 'G5';
             if (name.includes('transamin') || name.includes('whitening program')) return 'Transamin';
             if (name.includes('rf')) return 'RF';
@@ -576,6 +580,8 @@
             if (name.includes('วงเงินเหลือ') || name.includes('บัตร bornsong card 35,000')) return 'วงเงินเหลือ';
             if (name.includes('liporase')) return 'Liporase';
             if (name.includes('pms')) return 'PMS';
+            
+            // Grouping categories
             if (name.includes('chanel') || name.includes("l'ebss") || name.includes('inno') || name.includes('sakura') || name.includes('meso') || name.includes('made') || name.includes('ฉีดหน้า') || name.includes('prp') || name.includes('guna collagen') || name.includes('derma care') || name.includes('reborn glass skin') || name.includes('seenskin') || name.includes('ssdn')) return 'Meso';
             if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || name.includes('vit-c') || name.includes('glow vital white') || name.includes('bornie secret white') || name.includes('extra white plus') || name.includes('onny white') || name.includes('oppa white') || name.includes('glow super glow')) return 'Drip';
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
@@ -594,6 +600,7 @@
             if (name.includes('treatment') || name.includes('ทรีทเมนท์') || name.includes('นวด') || name.includes('spa') || name.includes('mark collagen') || name.includes('cryo')) return 'Treatment';
             if (name.includes('ค่าแพทย์') || name.includes('df') || name.includes('doctor') || name.includes('consult') || name.includes('บริการ') || name.includes('service')) return 'Consultation / Service';
             if (name.includes('product') || name.includes('cream') || name.includes('gel') || name.includes('foam') || name.includes('sunscreen') || name.includes('set')) return 'Products / Skincare';
+            
             return 'General / Others';
         }
 
@@ -714,10 +721,7 @@
                 return acc;
             }, {});
 
-            const sortedPerformance = Object.entries(itemStats)
-                .sort((a,b) => b[1].rev - a[1].rev)
-                .slice(0, 10);
-
+            const sortedPerformance = Object.entries(itemStats).sort((a,b) => b[1].rev - a[1].rev).slice(0, 10);
             const avgQty = sortedPerformance.reduce((s, x) => s + x[1].qty, 0) / sortedPerformance.length;
             const avgPrice = sortedPerformance.reduce((s, x) => s + (x[1].rev / x[1].qty), 0) / sortedPerformance.length;
 
@@ -739,10 +743,10 @@
                         backgroundColor: (context) => {
                             const item = context.raw;
                             if(!item) return 'rgba(99, 102, 241, 0.6)';
-                            if(item.x >= avgQty && item.y >= avgPrice) return 'rgba(16, 185, 129, 0.7)'; // Star (Green)
-                            if(item.x >= avgQty && item.y < avgPrice) return 'rgba(59, 130, 246, 0.7)';  // Cash Cow (Blue)
-                            if(item.x < avgQty && item.y >= avgPrice) return 'rgba(245, 158, 11, 0.7)'; // Premium Niche (Orange)
-                            return 'rgba(236, 72, 153, 0.7)'; // Underperform (Pink)
+                            if(item.x >= avgQty && item.y >= avgPrice) return 'rgba(16, 185, 129, 0.7)'; // Star
+                            if(item.x >= avgQty && item.y < avgPrice) return 'rgba(59, 130, 246, 0.7)';  // Cash Cow
+                            if(item.x < avgQty && item.y >= avgPrice) return 'rgba(245, 158, 11, 0.7)'; // Premium Niche
+                            return 'rgba(236, 72, 153, 0.7)'; // Underperform
                         }
                     }]
                 },
@@ -766,14 +770,8 @@
                         }
                     },
                     scales: {
-                        x: { 
-                            title: { display: true, text: 'จำนวนครั้งที่ขาย (Volume)', font: { size: 10 } },
-                            grid: { color: (ctx) => ctx.tick.value === Math.round(avgQty) ? '#333' : '#eee' }
-                        },
-                        y: { 
-                            title: { display: true, text: 'ราคาเฉลี่ยต่อหน่วย (Avg Price)', font: { size: 10 } },
-                            grid: { color: (ctx) => ctx.tick.value === Math.round(avgPrice) ? '#333' : '#eee' }
-                        }
+                        x: { title: { display: true, text: 'จำนวนครั้งที่ขาย (Volume)' } },
+                        y: { title: { display: true, text: 'ราคาเฉลี่ยต่อหน่วย (Avg Price)' } }
                     }
                 }
             });
@@ -823,11 +821,7 @@
                     if (!m.userSpendInMonth[r.HN]) m.userSpendInMonth[r.HN] = 0;
                     m.userSpendInMonth[r.HN] += r['ยอดชำระ'];
                     const regMonth = r.__regDate ? `${r.__regDate.getFullYear()}-${String(r.__regDate.getMonth() + 1).padStart(2, '0')}` : null;
-                    if (regMonth === monthKey) {
-                        m.newHNs.add(r.HN);
-                    } else {
-                        m.oldHNs.add(r.HN);
-                    }
+                    if (regMonth === monthKey) m.newHNs.add(r.HN); else m.oldHNs.add(r.HN);
                 }
                 return acc;
             }, {});
@@ -836,7 +830,7 @@
             sortedMonths.forEach(mKey => {
                 const m = monthlyStats[mKey];
                 Object.entries(m.userSpendInMonth).forEach(([hn, total]) => {
-                    if (total > 0) { m.payingHNs.add(hn); } else { m.courseCutHNs.add(hn); }
+                    if (total > 0) m.payingHNs.add(hn); else m.courseCutHNs.add(hn);
                 });
             });
 
@@ -853,28 +847,13 @@
                         { label: 'ลูกค้าตัดคอร์ส', data: sortedMonths.map(m => monthlyStats[m].courseCutHNs.size), borderColor: '#ec4899', backgroundColor: '#ec4899', fill: false, tension: 0.2 }
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } },
-                    scales: { y: { beginAtZero: true } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
             });
 
             const tableBody = document.getElementById('monthlyAnalysisBody');
             tableBody.innerHTML = sortedMonths.slice().reverse().map(mKey => {
                 const m = monthlyStats[mKey];
-                return `
-                    <tr>
-                        <td style="font-weight:700">${mKey}</td>
-                        <td style="text-align:right; font-weight:700">${m.revenue.toLocaleString()}</td>
-                        <td style="text-align:center">${m.allHNs.size.toLocaleString()}</td>
-                        <td style="text-align:center; color:#f59e0b; font-weight:600">${m.newHNs.size.toLocaleString()}</td>
-                        <td style="text-align:center; color:#3b82f6; font-weight:600">${m.oldHNs.size.toLocaleString()}</td>
-                        <td style="text-align:center; color:#10b981; font-weight:600">${m.payingHNs.size.toLocaleString()}</td>
-                        <td style="text-align:center; color:#ec4899; font-weight:600">${m.courseCutHNs.size.toLocaleString()}</td>
-                    </tr>
-                `;
+                return `<tr><td style="font-weight:700">${mKey}</td><td style="text-align:right; font-weight:700">${m.revenue.toLocaleString()}</td><td style="text-align:center">${m.allHNs.size.toLocaleString()}</td><td style="text-align:center; color:#f59e0b; font-weight:600">${m.newHNs.size.toLocaleString()}</td><td style="text-align:center; color:#3b82f6; font-weight:600">${m.oldHNs.size.toLocaleString()}</td><td style="text-align:center; color:#10b981; font-weight:600">${m.payingHNs.size.toLocaleString()}</td><td style="text-align:center; color:#ec4899; font-weight:600">${m.courseCutHNs.size.toLocaleString()}</td></tr>`;
             }).join('');
         }
 
@@ -937,14 +916,7 @@
                 html += `<table style="width:100%; margin-bottom: 20px;">
                     <thead><tr><th style="width:50px; text-align:center">#</th><th>HN</th><th>ชื่อ / เบอร์โทร</th><th style="text-align:right">ยอดรวมหมวด</th><th>รายการที่ทำ</th></tr></thead>
                     <tbody>
-                    ${paying.map((c, i) => `
-                        <tr>
-                            <td style="text-align:center; color:#666;">${i + 1}</td>
-                            <td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td>
-                            <td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td>
-                            <td style="text-align:right; font-weight:700; color:#10b981;">${c.total.toLocaleString()}</td>
-                            <td style="font-size:0.75rem; color:#666">${Array.from(c.items).join(', ')}</td>
-                        </tr>`).join('')}
+                    ${paying.map((c, i) => `<tr><td style="text-align:center; color:#666;">${i + 1}</td><td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td><td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td><td style="text-align:right; font-weight:700; color:#10b981;">${c.total.toLocaleString()}</td><td style="font-size:0.75rem; color:#666">${Array.from(c.items).join(', ')}</td></tr>`).join('')}
                     </tbody></table>`;
             }
 
@@ -953,18 +925,10 @@
                 html += `<table style="width:100%">
                     <thead><tr><th style="width:50px; text-align:center">#</th><th>HN</th><th>ชื่อ / เบอร์โทร</th><th style="text-align:right">สถานะ</th><th>รายการที่ทำ</th></tr></thead>
                     <tbody>
-                    ${zero.map((c, i) => `
-                        <tr>
-                            <td style="text-align:center; color:#666;">${i + 1}</td>
-                            <td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td>
-                            <td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td>
-                            <td style="text-align:right;"><span class="badge neu">ตัดคอร์ส/ฟรี</span></td>
-                            <td style="font-size:0.75rem; color:#666">${Array.from(c.items).join(', ')}</td>
-                        </tr>`).join('')}
+                    ${zero.map((c, i) => `<tr><td style="text-align:center; color:#666;">${i + 1}</td><td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td><td><div style="font-weight:600">${c.name}</div><small>${c.phone}</small></td><td style="text-align:right;"><span class="badge neu">ตัดคอร์ส/ฟรี</span></td><td style="font-size:0.75rem; color:#666">${Array.from(c.items).join(', ')}</td></tr>`).join('')}
                     </tbody></table>`;
             }
             html += `</div>`;
-
             document.getElementById('listModalTitle').textContent = `📂 หมวดหมู่: ${catName} (รวม ${allCustomers.length} คน)`;
             document.getElementById('listModalBody').innerHTML = html;
             openModal('listModal');
@@ -991,113 +955,28 @@
             const fNum = (n) => n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             const fInt = (n) => n.toLocaleString(undefined, {maximumFractionDigits: 0});
             const cur = calculateMetrics(filteredData, processedCustomers);
-            
-            // ดึงช่วงวันที่สำหรับการเช็คลูกค้าใหม่
             const startStr = document.getElementById('startDate').value;
             const endStr = document.getElementById('endDate').value;
             const start = startStr ? new Date(startStr) : new Date(0);
             const end = endStr ? new Date(endStr) : new Date();
             end.setHours(23,59,59);
 
-            let prompt = `Role: Clinic Business Strategist\n`;
-            prompt += `Task: Analyze the clinic performance data and suggest actionable growth strategies.\n\n`;
-            prompt += `--- 1. Business Overview (ภาพรวมธุรกิจ) ---\n`;
-            prompt += `- ยอดขายรวม: ${fNum(cur.rev)} บาท\n`;
-            prompt += `- ยอดต่อหัว (Avg/Head): ${fNum(cur.avgHead)} บาท/คน\n`;
-            prompt += `- ยอดขายลูกค้าใหม่: ${fNum(cur.newSales)} บาท\n`;
-            prompt += `- ยอดขายลูกค้าเก่า: ${fNum(cur.oldSales)} บาท\n`;
-            prompt += `- จำนวน Visit: ${fInt(cur.visits)} ครั้ง\n`;
-            prompt += `- ลูกค้าทั้งหมด: ${fInt(cur.unique)} คน\n`;
-            prompt += `- ลูกค้าใหม่ (ลงทะเบียน): ${fInt(cur.newReg)} คน\n`;
-            prompt += `- ลูกค้าเก่า: ${fInt(cur.oldCust)} คน\n`;
-            prompt += `- ลูกค้าใหม่จ่ายเงิน: ${fInt(cur.newPaying)} คน\n`;
-            prompt += `- ลูกค้าที่จ่ายเงินทั้งหมด: ${fInt(cur.payingCount)} คน\n`;
-            prompt += `- อัตราลูกค้าเดิม (Repeat Rate): ${cur.repeatRate.toFixed(1)}%\n\n`;
+            let prompt = `Role: Clinic Business Strategist\nTask: Analyze data and suggest growth strategies.\n\n`;
+            prompt += `--- 1. Overview ---\n- ยอดขายรวม: ${fNum(cur.rev)} บ.\n- Avg/Head: ${fNum(cur.avgHead)} บ.\n- ลูกค้าทั้งหมด: ${fInt(cur.unique)} คน (ใหม่: ${fInt(cur.newReg)})\n- Repeat Rate: ${cur.repeatRate.toFixed(1)}%\n\n`;
 
-            prompt += `--- 2. Spending Segments (แบ่งตามยอดชำระ) ---\n`;
-            PRICE_RANGES.forEach(r => {
-                const members = processedCustomers.filter(c => c.segmentLabel === r.label);
-                const sum = members.reduce((s, c) => s + c.total, 0);
-                prompt += `- ${r.label}: ${fInt(members.length)} คน (รวม ${fNum(sum)} บ.)\n`;
-            });
-
-            prompt += `\n--- 3. Visit Frequency (ความถี่การใช้บริการ) ---\n`;
-            const freqMap = processedCustomers.reduce((acc, c) => { acc[c.visits.size] = (acc[c.visits.size]||0) + 1; return acc; }, {});
-            Object.keys(freqMap).sort((a,b)=>a-b).forEach(f => {
-                prompt += `- มา ${f} ครั้ง: ${fInt(freqMap[f])} คน\n`;
-            });
-
-            prompt += `\n--- 4. Category Performance (ยอดขายแยกตามหมวดหมู่ - คัดกรองละเอียด) ---\n`;
+            prompt += `--- 2. Category Performance (Updated) ---\n`;
             const catDataDetailed = filteredData.reduce((acc, r) => {
                 const c = getCategoryForRow(r);
-                if(!acc[c]) acc[c] = { rev:0, customers: {}, newCusts: new Set() };
+                if(!acc[c]) acc[c] = { rev:0, hns: new Set() };
                 acc[c].rev += r['ยอดชำระ'];
-                if(r.HN) {
-                    if(!acc[c].customers[r.HN]) acc[c].customers[r.HN] = 0;
-                    acc[c].customers[r.HN] += r['ยอดชำระ'];
-                    if (r.__regDate && r.__regDate >= start && r.__regDate <= end) {
-                        acc[c].newCusts.add(r.HN);
-                    }
-                }
+                if(r.HN) acc[c].hns.add(r.HN);
                 return acc;
             }, {});
-
             Object.entries(catDataDetailed).sort((a,b)=>b[1].rev - a[1].rev).forEach(([k,c]) => {
-                const allHNs = Object.keys(c.customers);
-                const totalCust = allHNs.length;
-                const newCustCount = c.newCusts.size;
-                const payingCust = allHNs.filter(hn => c.customers[hn] > 0).length;
-                const zeroCust = totalCust - payingCust;
-                prompt += `- ${k}: ยอด ${fNum(c.rev)} บ. | ลูกค้าทั้งหมด ${totalCust} (ใหม่ ${newCustCount}, จ่ายเงิน ${payingCust}, ตัดคอร์ส/ฟรี ${zeroCust})\n`;
+                prompt += `- ${k}: ยอด ${fNum(c.rev)} บ. (ลูกค้า ${c.hns.size} คน)\n`;
             });
 
-            prompt += `\n--- 5. Top 10 Services (10 อันดับบริการยอดฮิต) ---\n`;
-            const itemStats = filteredData.reduce((acc, r) => {
-                if(r['ยอดชำระ'] > 0 && r['รายการ']) {
-                    if(!acc[r['รายการ']]) acc[r['รายการ']] = { rev:0, qty:0 };
-                    acc[r['รายการ']].rev += r['ยอดชำระ'];
-                    acc[r['รายการ']].qty++;
-                }
-                return acc;
-            }, {});
-            Object.entries(itemStats).sort((a,b)=>b[1].rev - a[1].rev).slice(0, 10).forEach(([k,v], i) => {
-                prompt += `${i+1}. ${k} | ยอดขาย: ${fNum(v.rev)} บ. | จำนวน: ${fInt(v.qty)} ครั้ง\n`;
-            });
-
-            // --- UPDATED: 6. Monthly Behavior Trends (อิงตามระยะเวลาที่เลือก) ---
-            prompt += `\n--- 6. Monthly Behavior Trends (แนวโน้มพฤติกรรมรายเดือน - ตามระยะเวลาที่เลือก) ---\n`;
-            const monthlyStats = filteredData.reduce((acc, r) => {
-                const monthKey = `${r.__date.getFullYear()}-${String(r.__date.getMonth() + 1).padStart(2, '0')}`;
-                if (!acc[monthKey]) {
-                    acc[monthKey] = { revenue: 0, all: new Set(), new: new Set(), old: new Set(), paying: new Set(), courseCut: new Set(), spendByHN: {} };
-                }
-                const m = acc[monthKey];
-                m.revenue += r['ยอดชำระ'];
-                if (r.HN) {
-                    m.all.add(r.HN);
-                    if (!m.spendByHN[r.HN]) m.spendByHN[r.HN] = 0;
-                    m.spendByHN[r.HN] += r['ยอดชำระ'];
-                    // เช็คสถานะลูกค้าใหม่โดยอิงจากวันลงทะเบียนจริง
-                    const regMonth = r.__regDate ? `${r.__regDate.getFullYear()}-${String(r.__regDate.getMonth() + 1).padStart(2, '0')}` : null;
-                    if (regMonth === monthKey) m.new.add(r.HN); else m.old.add(r.HN);
-                }
-                return acc;
-            }, {});
-
-            Object.keys(monthlyStats).sort().reverse().forEach(mKey => {
-                const m = monthlyStats[mKey];
-                Object.entries(m.spendByHN).forEach(([hn, amt]) => { if(amt > 0) m.paying.add(hn); else m.courseCut.add(hn); });
-                prompt += `- เดือน ${mKey} | ยอดขาย: ${fNum(m.revenue)} บ. | ลูกค้าทั้งหมด: ${m.all.size} (ใหม่: ${m.new.size}, เก่า: ${m.old.size}) | จ่ายเงิน: ${m.paying.size} | ตัดคอร์ส: ${m.courseCut.size}\n`;
-            });
-
-            prompt += `\nStrategic Analysis Questions:\n`;
-            prompt += `1. จากแนวโน้มรายเดือน (Section 6) ยอดขายและสัดส่วนลูกค้าใหม่/เก่ามีทิศทางอย่างไรในช่วงเวลาที่เลือก?\n`;
-            prompt += `2. จาก Performance Matrix (Section 5) บริการใดเป็น 'Star' (Volume สูง Price สูง) และ 'Cash Cow' (Volume สูง Price ต่ำ)?\n`;
-            prompt += `3. วิเคราะห์หมวดหมู่ใน Section 4: หมวดใดที่มีลูกค้าตัดคอร์สสูงเกินไปจนอาจกระทบกระแสเงินสดในอนาคต? หมวดใดที่มีลูกค้าใหม่เข้าหามากที่สุด?\n`;
-            prompt += `4. แนะนำโปรโมชั่นเพื่อดึงดูดลูกค้าที่มาเพียง 1 ครั้งให้กลับมาซ้ำ หรือเปลี่ยนลูกค้าที่มาตัดคอร์สให้ซื้อคอร์สใหม่เพิ่ม\n`;
-
-            document.getElementById('aiText').area = document.getElementById('aiText');
-            document.getElementById('aiText').value = prompt;
+            document.getElementById('aiText').value = prompt + "\nStrategic Analysis: Please provide insights on high-performing categories (especially E-Jal and Consultation) and conversion trends.";
             openModal('aiModal');
         }
 
@@ -1113,14 +992,14 @@
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
         function populateSegmentFilter() { document.getElementById('segmentFilter').innerHTML = '<option value="all">แสดงทั้งหมด</option>' + PRICE_RANGES.map(r => `<option value="${r.label}">${r.label}</option>`).join(''); }
         function filterBySegment(label) { document.getElementById('segmentFilter').value = label; renderDetailsTable(); }
-        function copyToClipboard() { const area = document.getElementById('aiText'); area.select(); document.execCommand('copy'); alert('คัดลอกข้อมูลเรียบร้อยแล้ว'); }
+        function copyToClipboard() { const area = document.getElementById('aiText'); area.select(); document.execCommand('copy'); }
 
         function exportPDF() {
             const element = document.getElementById('dashboardView');
             const width = element.offsetWidth;
             const height = element.offsetHeight;
             const opt = {
-                margin: 0, filename: 'Clinic_Strategic_Report.pdf', image: { type: 'jpeg', quality: 0.98 },
+                margin: 0, filename: 'Clinic_Report.pdf', image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true },
                 jsPDF: { unit: 'px', format: [width + 40, height + 40], orientation: width > height ? 'l' : 'p' }
             };
