@@ -542,7 +542,6 @@
         function getCategoryForRow(row) {
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ';
-
             if (name.includes('ultra for mer')) return 'Ultrafomer';
             if (name.includes('aesthefill') || name.includes('aesthe fill')) return 'Aesthe Fill'; 
             if (name.includes('profhilo')) return 'Profhilo';
