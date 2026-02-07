@@ -175,7 +175,7 @@
                     <div class="stat-card"><div class="stat-value" id="statAvgHead" style="color:var(--secondary-gradient)">-</div><div class="stat-label">ยอดต่อหัว (บาท/คน)</div></div>
                     <div class="stat-card"><div class="stat-value" id="statNewSales" style="color:var(--primary-color)">-</div><div class="stat-label">ยอดขายลูกค้าใหม่ (บาท)</div></div>
                     <div class="stat-card"><div class="stat-value" id="statOldSales">-</div><div class="stat-label">ยอดขายลูกค้าเก่ารวม (บาท)</div></div>
-                    <div class="stat-card"><div class="stat-value" id="statOldRepeatSales" style="color:var(--accent-color)">-</div><div class="stat-label">ยอดขายลูกค้าเก่ามาซ้ำ (บาท)</div></div>
+                    <div class="stat-card"><div class="stat-value" id="statOldRepeatSales" style="color:var(--accent-color)">-</div><div class="stat-label">ยอดขายลูกค้าเก่ามาซ้ำ (บาท/คน)</div></div>
                     <div class="stat-card"><div class="stat-value" id="statVisits">-</div><div class="stat-label">จำนวน Visit (ครั้ง)</div></div>
                     <div class="stat-card"><div class="stat-value" id="statUniqueCust">-</div><div class="stat-label">ลูกค้าทั้งหมด (คน)</div></div>
                     <div class="stat-card"><div class="stat-value" id="statNewReg" style="color:var(--primary-color)">-</div><div class="stat-label">ลูกค้าใหม่ (ลงทะเบียน)</div></div>
@@ -461,11 +461,13 @@
             const repeatCusts = customers.filter(c => c.visits.size > 1);
             const oldRepeatCusts = customers.filter(c => !c.isNew && c.visits.size > 1);
             const oldRepeatSales = oldRepeatCusts.reduce((s,c) => s + c.total, 0);
+            const oldRepeatCount = oldRepeatCusts.length;
             
             return {
                 rev, visits, unique, payingCount: payingCustomers.length,
                 newSales, oldSales: rev - newSales, 
-                oldRepeatSales, // Added
+                oldRepeatSales, 
+                oldRepeatCount,
                 newReg: newReg.length,
                 oldCust: unique - newReg.length,
                 newPaying: newReg.filter(c => c.total > 0).length,
@@ -492,11 +494,12 @@
                 prev = calculateMetrics(compareData, Object.values(compareHnMap));
             }
 
-            const format = (id, val, pVal, isMoney = true, isPct = false) => {
+            const format = (id, val, pVal, isMoney = true, isPct = false, extraText = "") => {
                 const el = document.getElementById(id);
                 if(!el) return;
                 let txt = val.toLocaleString(undefined, {minimumFractionDigits: isMoney?2:0, maximumFractionDigits: isMoney?2:1});
                 if(isPct) txt += '%';
+                if(extraText) txt += ` ${extraText}`;
                 
                 let badge = '';
                 if(pVal !== null && pVal !== undefined) {
@@ -520,7 +523,8 @@
             format('statAvgHead', cur.avgHead, prev?.avgHead);
             format('statNewSales', cur.newSales, prev?.newSales);
             format('statOldSales', cur.oldSales, prev?.oldSales);
-            format('statOldRepeatSales', cur.oldRepeatSales, prev?.oldRepeatSales); // Display added
+            format('statOldRepeatSales', cur.oldRepeatSales, prev?.oldRepeatSales, true, false, `(${cur.oldRepeatCount.toLocaleString()} คน)`); 
+            
             format('statVisits', cur.visits, prev?.visits, false);
             format('statUniqueCust', cur.unique, prev?.unique, false);
             format('statNewReg', cur.newReg, prev?.newReg, false);
@@ -739,10 +743,6 @@
         function parseThaiDate(s) { if(!s) return null; if (s instanceof Date) return s; const str = s.toString().trim(); const p = str.split(/[\/\-]/); if(p.length !== 3) return null; let y = parseInt(p[2]); if(y > 2500) y -= 543; return new Date(y, parseInt(p[1])-1, parseInt(p[0])); }
         function showCustDetail(hn) { const cust = processedCustomers.find(c => c.hn === hn); if(!cust) return; const history = rawData.filter(r => r.HN === hn).sort((a,b) => b.__date - a.__date); document.getElementById('custModalTitle').textContent = `👤 ${cust.name} (HN: ${hn})`; document.getElementById('custModalBody').innerHTML = `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:20px; background:#f8fafc; padding:15px; border-radius:10px;"><div><strong>เบอร์โทร:</strong> ${cust.phone}</div><div><strong>กลุ่มยอดซื้อ:</strong> ${cust.segmentLabel}</div><div><strong>ยอดรวม:</strong> ${cust.total.toLocaleString()} บาท</div><div><strong>มาทั้งหมด:</strong> ${cust.visits.size} ครั้ง</div></div><table><thead><tr><th>วันที่</th><th>รายการ</th><th style="text-align:right">ยอด</th></tr></thead><tbody>${history.map(h => `<tr><td>${h['วันที่ขาย']}</td><td>${h['รายการ']}</td><td style="text-align:right">${h['ยอดชำระ'].toLocaleString()}</td></tr>`).join('')}</tbody></table>`; openModal('custModal'); }
 
-        /**
-         * UPDATED: AI Strategic Prompt Builder
-         * Automatically sets the analysis period and includes Old Repeat Sales.
-         */
         function showAIModal() {
             const fNum = (n) => n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             const fInt = (n) => n.toLocaleString(undefined, {maximumFractionDigits: 0});
@@ -757,7 +757,7 @@
             prompt += `- ยอดต่อหัว (Avg/Head): ${fNum(cur.avgHead)} บาท/คน\n`;
             prompt += `- ยอดขายลูกค้าใหม่: ${fNum(cur.newSales)} บาท\n`;
             prompt += `- ยอดขายลูกค้าเก่ารวม: ${fNum(cur.oldSales)} บาท\n`;
-            prompt += `- ยอดขายลูกค้าเก่ามาซ้ำ: ${fNum(cur.oldRepeatSales)} บาท\n`; // Added to Prompt
+            prompt += `- ยอดขายลูกค้าเก่ามาซ้ำ: ${fNum(cur.oldRepeatSales)} บาท (จำนวนคน: ${fInt(cur.oldRepeatCount)} คน)\n`;
             prompt += `- จำนวน Visit: ${fInt(cur.visits)} ครั้ง\n`;
             prompt += `- ลูกค้าทั้งหมด: ${fInt(cur.unique)} คน\n`;
             prompt += `- ลูกค้าใหม่ (ลงทะเบียน): ${fInt(cur.newReg)} คน\n`;
@@ -821,7 +821,49 @@
         function populateSegmentFilter() { document.getElementById('segmentFilter').innerHTML = '<option value="all">แสดงทั้งหมด</option>' + PRICE_RANGES.map(r => `<option value="${r.label}">${r.label}</option>`).join(''); }
         function filterBySegment(label) { document.getElementById('segmentFilter').value = label; renderDetailsTable(); }
         function copyToClipboard() { const area = document.getElementById('aiText'); area.select(); document.execCommand('copy'); }
-        function exportPDF() { const element = document.getElementById('dashboardView'); const width = element.offsetWidth; const height = element.offsetHeight; const opt = { margin: 0, filename: 'Clinic_Report.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'px', format: [width + 40, height + 40], orientation: width > height ? 'l' : 'p' } }; html2pdf().set(opt).from(element).save(); }
+
+        /**
+         * UPDATED exportPDF:
+         * Generates a single continuous PDF page based on dashboard content height.
+         */
+        function exportPDF() {
+            const element = document.getElementById('dashboardView');
+            
+            // Temporary styles to ensure clean capture
+            const originalStyle = element.style.cssText;
+            element.style.width = '1400px'; // Set a fixed width for consistent rendering
+            element.style.padding = '30px';
+            element.style.height = 'auto'; // Let it expand naturally
+
+            // Get total dimensions after style update
+            const widthPx = element.offsetWidth;
+            const heightPx = element.scrollHeight + 100; // Add some padding at the bottom
+
+            const opt = {
+                margin: 0,
+                filename: 'Clinic_Strategic_Report.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { 
+                    scale: 2, 
+                    useCORS: true,
+                    logging: false,
+                    windowWidth: widthPx,
+                    windowHeight: heightPx
+                },
+                jsPDF: { 
+                    unit: 'px', 
+                    format: [widthPx, heightPx], // Force page size to match content
+                    orientation: 'portrait',
+                    hotfixes: ['px_scaling']
+                }
+            };
+
+            html2pdf().set(opt).from(element).toPdf().get('pdf').then((pdf) => {
+                // Return to original styles
+                element.style.cssText = originalStyle;
+            }).save();
+        }
+
         window.onclick = function(e) { if(e.target.className === 'modal') closeModal(e.target.id); }
     </script>
 </body>
