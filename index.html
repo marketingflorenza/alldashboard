@@ -537,17 +537,15 @@
         }
 
         /**
-         * UPDATED Categorization Logic
+         * Categorization Logic
          */
         function getCategoryForRow(row) {
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ';
 
-            // --- Priority 1: Specific requested items ---
             if (name.includes('e-jal')) return 'E-Jal';
             if (name.includes('ค่าเข้ารับการปรึกษาแพทย์')) return 'ค่าเข้ารับการปรึกษาแพทย์';
 
-            // --- Priority 2: Other services ---
             if (name.includes('ultra for mer')) return 'Ultrafomer';
             if (name.includes('aesthefill') || name.includes('aesthe fill')) return 'Aesthe Fill'; 
             if (name.includes('profhilo')) return 'Profhilo';
@@ -581,7 +579,6 @@
             if (name.includes('liporase')) return 'Liporase';
             if (name.includes('pms')) return 'PMS';
             
-            // Grouping categories
             if (name.includes('chanel') || name.includes("l'ebss") || name.includes('inno') || name.includes('sakura') || name.includes('meso') || name.includes('made') || name.includes('ฉีดหน้า') || name.includes('prp') || name.includes('guna collagen') || name.includes('derma care') || name.includes('reborn glass skin') || name.includes('seenskin') || name.includes('ssdn')) return 'Meso';
             if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || name.includes('vit-c') || name.includes('glow vital white') || name.includes('bornie secret white') || name.includes('extra white plus') || name.includes('onny white') || name.includes('oppa white') || name.includes('glow super glow')) return 'Drip';
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
@@ -951,32 +948,105 @@
             openModal('custModal');
         }
 
+        /**
+         * UPDATED: AI Strategic Prompt Builder
+         * Automatically sets the analysis period based on dashboard filters.
+         */
         function showAIModal() {
             const fNum = (n) => n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             const fInt = (n) => n.toLocaleString(undefined, {maximumFractionDigits: 0});
+            
             const cur = calculateMetrics(filteredData, processedCustomers);
             const startStr = document.getElementById('startDate').value;
             const endStr = document.getElementById('endDate').value;
+            
+            // Format dates for the prompt
+            const dateDisplay = (startStr && endStr) ? `${startStr} ถึง ${endStr}` : "ข้อมูลทั้งหมดในไฟล์";
+
+            let prompt = `Role: Clinic Business Strategist\n`;
+            prompt += `Task: Analyze the clinic performance data and suggest actionable growth strategies.\n`;
+            prompt += `Analysis Period (ช่วงเวลาที่วิเคราะห์): ${dateDisplay}\n\n`;
+
+            prompt += `--- 1. Business Overview (ภาพรวมธุรกิจในช่วงที่เลือก) ---\n`;
+            prompt += `- ยอดขายรวม: ${fNum(cur.rev)} บาท\n`;
+            prompt += `- ยอดต่อหัว (Avg/Head): ${fNum(cur.avgHead)} บาท/คน\n`;
+            prompt += `- ยอดขายลูกค้าใหม่: ${fNum(cur.newSales)} บาท\n`;
+            prompt += `- ยอดขายลูกค้าเก่า: ${fNum(cur.oldSales)} บาท\n`;
+            prompt += `- จำนวน Visit: ${fInt(cur.visits)} ครั้ง\n`;
+            prompt += `- ลูกค้าทั้งหมดที่รับบริการ: ${fInt(cur.unique)} คน\n`;
+            prompt += `- ลูกค้าใหม่ (ลงทะเบียนในช่วงนี้): ${fInt(cur.newReg)} คน\n`;
+            prompt += `- ลูกค้าเก่าที่กลับมาใช้บริการ: ${fInt(cur.oldCust)} คน\n`;
+            prompt += `- ลูกค้าใหม่ที่มียอดชำระ: ${fInt(cur.newPaying)} คน\n`;
+            prompt += `- ลูกค้าที่จ่ายเงินทั้งหมด: ${fInt(cur.payingCount)} คน\n`;
+            prompt += `- อัตราลูกค้าเดิมที่กลับมาซ้ำ (Repeat Rate): ${cur.repeatRate.toFixed(1)}%\n\n`;
+
+            prompt += `--- 2. Spending Segments (แบ่งตามยอดชำระในช่วงที่เลือก) ---\n`;
+            PRICE_RANGES.forEach(r => {
+                const members = processedCustomers.filter(c => c.segmentLabel === r.label);
+                const sum = members.reduce((s, c) => s + c.total, 0);
+                prompt += `- ${r.label}: ${fInt(members.length)} คน (รวม ${fNum(sum)} บ.)\n`;
+            });
+
+            prompt += `\n--- 3. Visit Frequency (ความถี่การใช้บริการในช่วงที่เลือก) ---\n`;
+            const freqMap = processedCustomers.reduce((acc, c) => { acc[c.visits.size] = (acc[c.visits.size]||0) + 1; return acc; }, {});
+            Object.keys(freqMap).sort((a,b)=>a-b).forEach(f => {
+                prompt += `- มา ${f} ครั้ง: ${fInt(freqMap[f])} คน\n`;
+            });
+
+            prompt += `\n--- 4. Category Performance (ประสิทธิภาพรายหมวดหมู่ในช่วงที่เลือก) ---\n`;
             const start = startStr ? new Date(startStr) : new Date(0);
             const end = endStr ? new Date(endStr) : new Date();
             end.setHours(23,59,59);
 
-            let prompt = `Role: Clinic Business Strategist\nTask: Analyze data and suggest growth strategies.\n\n`;
-            prompt += `--- 1. Overview ---\n- ยอดขายรวม: ${fNum(cur.rev)} บ.\n- Avg/Head: ${fNum(cur.avgHead)} บ.\n- ลูกค้าทั้งหมด: ${fInt(cur.unique)} คน (ใหม่: ${fInt(cur.newReg)})\n- Repeat Rate: ${cur.repeatRate.toFixed(1)}%\n\n`;
-
-            prompt += `--- 2. Category Performance (Updated) ---\n`;
             const catDataDetailed = filteredData.reduce((acc, r) => {
                 const c = getCategoryForRow(r);
-                if(!acc[c]) acc[c] = { rev:0, hns: new Set() };
+                if(!acc[c]) acc[c] = { rev:0, customers: {}, newCusts: new Set() };
                 acc[c].rev += r['ยอดชำระ'];
-                if(r.HN) acc[c].hns.add(r.HN);
+                if(r.HN) {
+                    if(!acc[c].customers[r.HN]) acc[c].customers[r.HN] = 0;
+                    acc[c].customers[r.HN] += r['ยอดชำระ'];
+                    if (r.__regDate && r.__regDate >= start && r.__regDate <= end) acc[c].newCusts.add(r.HN);
+                }
                 return acc;
             }, {});
             Object.entries(catDataDetailed).sort((a,b)=>b[1].rev - a[1].rev).forEach(([k,c]) => {
-                prompt += `- ${k}: ยอด ${fNum(c.rev)} บ. (ลูกค้า ${c.hns.size} คน)\n`;
+                const totalCust = Object.keys(c.customers).length;
+                prompt += `- ${k}: ยอด ${fNum(c.rev)} บ. | ลูกค้า ${totalCust} คน (ลูกค้าใหม่หมวดนี้ ${c.newCusts.size} คน)\n`;
             });
 
-            document.getElementById('aiText').value = prompt + "\nStrategic Analysis: Please provide insights on high-performing categories (especially E-Jal and Consultation) and conversion trends.";
+            prompt += `\n--- 5. Top 10 Services (10 อันดับบริการยอดฮิตในช่วงที่เลือก) ---\n`;
+            const itemStats = filteredData.reduce((acc, r) => {
+                if(r['ยอดชำระ'] > 0 && r['รายการ']) {
+                    if(!acc[r['รายการ']]) acc[r['รายการ']] = { rev:0, qty:0 };
+                    acc[r['รายการ']].rev += r['ยอดชำระ'];
+                    acc[r['รายการ']].qty++;
+                }
+                return acc;
+            }, {});
+            Object.entries(itemStats).sort((a,b)=>b[1].rev - a[1].rev).slice(0, 10).forEach(([k,v], i) => {
+                prompt += `${i+1}. ${k} | ยอดขาย: ${fNum(v.rev)} บ. | จำนวน: ${fInt(v.qty)} ครั้ง\n`;
+            });
+
+            prompt += `\n--- 6. Monthly Behavior Trends (สรุปรายเดือนเฉพาะช่วงเวลาที่เลือก) ---\n`;
+            const monthlyStats = filteredData.reduce((acc, r) => {
+                const monthKey = `${r.__date.getFullYear()}-${String(r.__date.getMonth() + 1).padStart(2, '0')}`;
+                if (!acc[monthKey]) acc[monthKey] = { revenue: 0, all: new Set(), new: new Set(), paying: new Set() };
+                const m = acc[monthKey];
+                m.revenue += r['ยอดชำระ'];
+                if (r.HN) {
+                    m.all.add(r.HN);
+                    if (r['ยอดชำระ'] > 0) m.paying.add(r.HN);
+                    const regMonth = r.__regDate ? `${r.__regDate.getFullYear()}-${String(r.__regDate.getMonth() + 1).padStart(2, '0')}` : null;
+                    if (regMonth === monthKey) m.new.add(r.HN);
+                }
+                return acc;
+            }, {});
+            Object.keys(monthlyStats).sort().reverse().forEach(mKey => {
+                const m = monthlyStats[mKey];
+                prompt += `- เดือน ${mKey} | ยอดขาย: ${fNum(m.revenue)} บ. | ลูกค้าทั้งหมด: ${m.all.size} (ลูกค้าใหม่: ${m.new.size}, จ่ายเงิน: ${m.paying.size})\n`;
+            });
+
+            document.getElementById('aiText').value = prompt;
             openModal('aiModal');
         }
 
