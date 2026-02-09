@@ -224,6 +224,7 @@
                                 <tr>
                                     <th>เดือน/ปี</th>
                                     <th style="text-align:right">ยอดรวม (บาท)</th>
+                                    <th style="text-align:right; color:#3b82f6;">ยอดลูกค้าเก่า</th>
                                     <th style="text-align:center">ลูกค้าทั้งหมด</th>
                                     <th style="text-align:center; color:#f59e0b;">ลูกค้าใหม่</th>
                                     <th style="text-align:center; color:#3b82f6;">ลูกค้าเก่า</th>
@@ -471,6 +472,7 @@
                 newReg: newReg.length,
                 oldCust: unique - newReg.length,
                 newPaying: newReg.filter(c => c.total > 0).length,
+                totalPaying: payingCustomers.length,
                 repeatRate: unique ? (repeatCusts.length / unique) * 100 : 0,
                 avgHead: payingCustomers.length ? rev / payingCustomers.length : 0
             };
@@ -530,7 +532,7 @@
             format('statNewReg', cur.newReg, prev?.newReg, false);
             format('statOldCust', cur.oldCust, prev?.oldCust, false);
             format('statNewPaying', cur.newPaying, prev?.newPaying, false);
-            format('statTotalPaying', cur.payingCount, prev?.payingCount, false);
+            format('statTotalPaying', cur.totalPaying, prev?.totalPaying, false);
             format('statRepeatRate', cur.repeatRate, prev?.repeatRate, false, true);
         }
 
@@ -681,25 +683,65 @@
         function renderMonthlyDetailedAnalysis() {
             const monthlyStats = rawData.reduce((acc, r) => {
                 const monthKey = `${r.__date.getFullYear()}-${String(r.__date.getMonth() + 1).padStart(2, '0')}`;
-                if (!acc[monthKey]) acc[monthKey] = { month: monthKey, revenue: 0, allHNs: new Set(), newHNs: new Set(), oldHNs: new Set(), payingHNs: new Set(), courseCutHNs: new Set(), userSpendInMonth: {} };
+                if (!acc[monthKey]) acc[monthKey] = { month: monthKey, revenue: 0, oldRevenue: 0, allHNs: new Set(), newHNs: new Set(), oldHNs: new Set(), payingHNs: new Set(), courseCutHNs: new Set(), userSpendInMonth: {} };
                 const m = acc[monthKey];
                 m.revenue += r['ยอดชำระ'];
+                
                 if (r.HN) {
                     m.allHNs.add(r.HN);
                     if (!m.userSpendInMonth[r.HN]) m.userSpendInMonth[r.HN] = 0;
                     m.userSpendInMonth[r.HN] += r['ยอดชำระ'];
+                    
                     const regMonth = r.__regDate ? `${r.__regDate.getFullYear()}-${String(r.__regDate.getMonth() + 1).padStart(2, '0')}` : null;
-                    if (regMonth === monthKey) m.newHNs.add(r.HN); else m.oldHNs.add(r.HN);
+                    if (regMonth === monthKey) {
+                        m.newHNs.add(r.HN);
+                    } else {
+                        m.oldHNs.add(r.HN);
+                        m.oldRevenue += r['ยอดชำระ']; // Calculate revenue from old customers
+                    }
                 }
                 return acc;
             }, {});
+
             const sortedMonths = Object.keys(monthlyStats).sort();
-            sortedMonths.forEach(mKey => { const m = monthlyStats[mKey]; Object.entries(m.userSpendInMonth).forEach(([hn, total]) => { if (total > 0) m.payingHNs.add(hn); else m.courseCutHNs.add(hn); }); });
+            sortedMonths.forEach(mKey => { 
+                const m = monthlyStats[mKey]; 
+                Object.entries(m.userSpendInMonth).forEach(([hn, total]) => { 
+                    if (total > 0) m.payingHNs.add(hn); 
+                    else m.courseCutHNs.add(hn); 
+                }); 
+            });
+
             if(charts.monthlyCustTrend) charts.monthlyCustTrend.destroy();
             const ctx = document.getElementById('monthlyCustomerTrendChart').getContext('2d');
-            charts.monthlyCustTrend = new Chart(ctx, { type: 'line', data: { labels: sortedMonths, datasets: [{ label: 'ลูกค้าใหม่', data: sortedMonths.map(m => monthlyStats[m].newHNs.size), borderColor: '#f59e0b', backgroundColor: '#f59e0b', fill: false, tension: 0.2 }, { label: 'ลูกค้าเก่า', data: sortedMonths.map(m => monthlyStats[m].oldHNs.size), borderColor: '#3b82f6', backgroundColor: '#3b82f6', fill: false, tension: 0.2 }, { label: 'ลูกค้าที่จ่ายเงิน', data: sortedMonths.map(m => monthlyStats[m].payingHNs.size), borderColor: '#10b981', backgroundColor: '#10b981', fill: false, tension: 0.2 }, { label: 'ลูกค้าตัดคอร์ส', data: sortedMonths.map(m => monthlyStats[m].courseCutHNs.size), borderColor: '#ec4899', backgroundColor: '#ec4899', fill: false, tension: 0.2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
+            charts.monthlyCustTrend = new Chart(ctx, { 
+                type: 'line', 
+                data: { 
+                    labels: sortedMonths, 
+                    datasets: [
+                        { label: 'ลูกค้าใหม่', data: sortedMonths.map(m => monthlyStats[m].newHNs.size), borderColor: '#f59e0b', backgroundColor: '#f59e0b', fill: false, tension: 0.2 }, 
+                        { label: 'ลูกค้าเก่า', data: sortedMonths.map(m => monthlyStats[m].oldHNs.size), borderColor: '#3b82f6', backgroundColor: '#3b82f6', fill: false, tension: 0.2 }, 
+                        { label: 'ลูกค้าที่จ่ายเงิน', data: sortedMonths.map(m => monthlyStats[m].payingHNs.size), borderColor: '#10b981', backgroundColor: '#10b981', fill: false, tension: 0.2 }, 
+                        { label: 'ลูกค้าตัดคอร์ส', data: sortedMonths.map(m => monthlyStats[m].courseCutHNs.size), borderColor: '#ec4899', backgroundColor: '#ec4899', fill: false, tension: 0.2 }
+                    ] 
+                }, 
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } 
+            });
+
             const tableBody = document.getElementById('monthlyAnalysisBody');
-            tableBody.innerHTML = sortedMonths.slice().reverse().map(mKey => { const m = monthlyStats[mKey]; return `<tr><td style="font-weight:700">${mKey}</td><td style="text-align:right; font-weight:700">${m.revenue.toLocaleString()}</td><td style="text-align:center">${m.allHNs.size.toLocaleString()}</td><td style="text-align:center; color:#f59e0b; font-weight:600">${m.newHNs.size.toLocaleString()}</td><td style="text-align:center; color:#3b82f6; font-weight:600">${m.oldHNs.size.toLocaleString()}</td><td style="text-align:center; color:#10b981; font-weight:600">${m.payingHNs.size.toLocaleString()}</td><td style="text-align:center; color:#ec4899; font-weight:600">${m.courseCutHNs.size.toLocaleString()}</td></tr>`; }).join('');
+            tableBody.innerHTML = sortedMonths.slice().reverse().map(mKey => { 
+                const m = monthlyStats[mKey]; 
+                return `<tr>
+                    <td style="font-weight:700">${mKey}</td>
+                    <td style="text-align:right; font-weight:700">${m.revenue.toLocaleString()}</td>
+                    <td style="text-align:right; font-weight:700; color:#3b82f6;">${m.oldRevenue.toLocaleString()}</td>
+                    <td style="text-align:center">${m.allHNs.size.toLocaleString()}</td>
+                    <td style="text-align:center; color:#f59e0b; font-weight:600">${m.newHNs.size.toLocaleString()}</td>
+                    <td style="text-align:center; color:#3b82f6; font-weight:600">${m.oldHNs.size.toLocaleString()}</td>
+                    <td style="text-align:center; color:#10b981; font-weight:600">${m.payingHNs.size.toLocaleString()}</td>
+                    <td style="text-align:center; color:#ec4899; font-weight:600">${m.courseCutHNs.size.toLocaleString()}</td>
+                </tr>`; 
+            }).join('');
         }
 
         function showFrequencyCustomers(freq) {
@@ -763,7 +805,7 @@
             prompt += `- ลูกค้าใหม่ (ลงทะเบียน): ${fInt(cur.newReg)} คน\n`;
             prompt += `- ลูกค้าเก่า: ${fInt(cur.oldCust)} คน\n`;
             prompt += `- ลูกค้าใหม่จ่ายเงิน: ${fInt(cur.newPaying)} คน\n`;
-            prompt += `- ลูกค้าที่จ่ายเงินทั้งหมด: ${fInt(cur.payingCount)} คน\n`;
+            prompt += `- ลูกค้าที่จ่ายเงินทั้งหมด: ${fInt(cur.totalPaying)} คน\n`;
             prompt += `- อัตราลูกค้าเดิม (Repeat Rate): ${cur.repeatRate.toFixed(1)}%\n\n`;
 
             prompt += `--- 2. Spending Segments ---\n`;
@@ -822,22 +864,15 @@
         function filterBySegment(label) { document.getElementById('segmentFilter').value = label; renderDetailsTable(); }
         function copyToClipboard() { const area = document.getElementById('aiText'); area.select(); document.execCommand('copy'); }
 
-        /**
-         * UPDATED exportPDF:
-         * Generates a single continuous PDF page based on dashboard content height.
-         */
         function exportPDF() {
             const element = document.getElementById('dashboardView');
-            
-            // Temporary styles to ensure clean capture
             const originalStyle = element.style.cssText;
-            element.style.width = '1400px'; // Set a fixed width for consistent rendering
+            element.style.width = '1400px'; 
             element.style.padding = '30px';
-            element.style.height = 'auto'; // Let it expand naturally
+            element.style.height = 'auto'; 
 
-            // Get total dimensions after style update
             const widthPx = element.offsetWidth;
-            const heightPx = element.scrollHeight + 100; // Add some padding at the bottom
+            const heightPx = element.scrollHeight + 100; 
 
             const opt = {
                 margin: 0,
@@ -852,14 +887,13 @@
                 },
                 jsPDF: { 
                     unit: 'px', 
-                    format: [widthPx, heightPx], // Force page size to match content
+                    format: [widthPx, heightPx], 
                     orientation: 'portrait',
                     hotfixes: ['px_scaling']
                 }
             };
 
             html2pdf().set(opt).from(element).toPdf().get('pdf').then((pdf) => {
-                // Return to original styles
                 element.style.cssText = originalStyle;
             }).save();
         }
