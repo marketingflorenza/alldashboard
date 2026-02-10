@@ -249,6 +249,7 @@
                                     <th>ตัวอย่างสินค้า (Items)</th>
                                     <th style="text-align:center">ลูกค้าทั้งหมด</th>
                                     <th style="text-align:center; color:#f59e0b;">ลูกค้าใหม่</th>
+                                    <th style="text-align:center; color:#3b82f6;">ลูกค้าเก่า</th>
                                     <th style="text-align:center; color:#10b981;">จ่ายเงิน</th>
                                     <th style="text-align:center; color:#6366f1;">ตัดคอร์ส</th>
                                     <th style="text-align:right">ยอดรวม</th>
@@ -618,13 +619,20 @@
 
             const getCatData = (data) => data.reduce((acc, r) => {
                 const c = getCategoryForRow(r);
-                if(!acc[c]) acc[c] = { rev:0, items: new Set(), customers: {}, newCusts: new Set() };
+                if(!acc[c]) acc[c] = { rev:0, items: new Set(), customers: {}, newCusts: new Set(), oldCusts: new Set() };
                 acc[c].rev += r['ยอดชำระ'];
                 if(r['รายการ']) acc[c].items.add(r['รายการ']);
                 if(r.HN) {
                     if(!acc[c].customers[r.HN]) acc[c].customers[r.HN] = 0;
                     acc[c].customers[r.HN] += r['ยอดชำระ'];
-                    if (r.__regDate && r.__regDate >= start && r.__regDate <= end) acc[c].newCusts.add(r.HN);
+                    
+                    const regDate = r.__regDate;
+                    const isNew = regDate && regDate >= start && regDate <= end;
+                    if (isNew) {
+                        acc[c].newCusts.add(r.HN);
+                    } else {
+                        acc[c].oldCusts.add(r.HN);
+                    }
                 }
                 return acc;
             }, {});
@@ -633,7 +641,8 @@
             const prevData = compareData.length > 0 ? getCatData(compareData) : null;
             const sortedKeys = Object.keys(curData).sort((a,b) => curData[b].rev - curData[a].rev);
             const head = document.getElementById('categoryTableHead');
-            let headerHTML = `<th>หมวดหมู่</th><th>ตัวอย่างสินค้า (Items)</th><th style="text-align:center">ลูกค้าทั้งหมด</th><th style="text-align:center; color:#f59e0b;">ลูกค้าใหม่</th><th style="text-align:center; color:#10b981;">จ่ายเงิน</th><th style="text-align:center; color:#6366f1;">ตัดคอร์ส</th><th style="text-align:right">ยอดรวม</th>`;
+            
+            let headerHTML = `<th>หมวดหมู่</th><th>ตัวอย่างสินค้า (Items)</th><th style="text-align:center">ลูกค้าทั้งหมด</th><th style="text-align:center; color:#f59e0b;">ลูกค้าใหม่</th><th style="text-align:center; color:#3b82f6;">ลูกค้าเก่า</th><th style="text-align:center; color:#10b981;">จ่ายเงิน</th><th style="text-align:center; color:#6366f1;">ตัดคอร์ส</th><th style="text-align:right">ยอดรวม</th>`;
             if(prevData) headerHTML += `<th style="text-align:right">ช่วงก่อน</th><th style="text-align:center">Change</th>`;
             headerHTML += `<th style="text-align:center">Drilldown</th>`;
             head.innerHTML = headerHTML;
@@ -644,15 +653,28 @@
                 const allHNs = Object.keys(c.customers);
                 const totalCust = allHNs.length;
                 const newCustCount = c.newCusts.size;
+                const oldCustCount = c.oldCusts.size;
                 const payingCust = allHNs.filter(hn => c.customers[hn] > 0).length;
                 const zeroCust = totalCust - payingCust;
+                
                 let changeHtml = '';
                 if(p) {
                     const diff = c.rev - p.rev;
                     const pct = p.rev === 0 ? (c.rev > 0 ? 100 : 0) : (diff / p.rev) * 100;
                     changeHtml = `<td style="text-align:right; font-size:0.75rem">${p.rev.toLocaleString()}</td><td style="text-align:center"><span class="badge ${pct>=0?'pos':'neg'}">${pct>=0?'+':''}${pct.toFixed(0)}%</span></td>`;
                 }
-                return `<tr><td style="font-weight:700">${k}</td><td style="color:#666; font-size:0.7rem;">${Array.from(c.items).slice(0,2).join(', ')}..</td><td style="text-align:center; font-weight:600;">${totalCust}</td><td style="text-align:center; font-weight:700; color:#f59e0b; background:rgba(245, 158, 11, 0.1); border-radius:8px;">${newCustCount}</td><td style="text-align:center; color:#10b981; font-weight:600;">${payingCust}</td><td style="text-align:center; color:#6366f1; font-weight:600;">${zeroCust}</td><td style="text-align:right; font-weight:700">${c.rev.toLocaleString()}</td>${changeHtml}<td style="text-align:center"><button class="btn-sm" onclick="showCategoryCustomers('${k}')">ดูรายชื่อ</button></td></tr>`;
+                return `<tr>
+                    <td style="font-weight:700">${k}</td>
+                    <td style="color:#666; font-size:0.7rem;">${Array.from(c.items).slice(0,2).join(', ')}..</td>
+                    <td style="text-align:center; font-weight:600;">${totalCust}</td>
+                    <td style="text-align:center; font-weight:700; color:#f59e0b;">${newCustCount}</td>
+                    <td style="text-align:center; font-weight:700; color:#3b82f6;">${oldCustCount}</td>
+                    <td style="text-align:center; color:#10b981; font-weight:600;">${payingCust}</td>
+                    <td style="text-align:center; color:#6366f1; font-weight:600;">${zeroCust}</td>
+                    <td style="text-align:right; font-weight:700">${c.rev.toLocaleString()}</td>
+                    ${changeHtml}
+                    <td style="text-align:center"><button class="btn-sm" onclick="showCategoryCustomers('${k}')">ดูรายชื่อ</button></td>
+                </tr>`;
             }).join('');
         }
 
