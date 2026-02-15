@@ -443,9 +443,9 @@
             processCustomerData();
             renderStats();
             renderSegments();
-            updatePerformanceMatrix(); // นี่จะรวมกราฟ Bubble ด้วย
-            renderMonthlyDetailedAnalysis(); // นี่จะรวมกราฟเส้นลูกค้าด้วย
-            renderCharts(); // กราฟรายวัน/เดือนทั่วไป
+            updatePerformanceMatrix(); 
+            renderMonthlyDetailedAnalysis(); 
+            renderCharts(); 
             renderDetailsTable();
             populateSegmentFilter();
         }
@@ -633,10 +633,8 @@
             }, {});
             const sorted = Object.entries(items).sort((a,b) => b[1].rev - a[1].rev).slice(0, 10);
             
-            // อัปเดตตาราง
             document.getElementById('performanceMatrixBody').innerHTML = sorted.map(([k,v], i) => `<tr><td style="text-align:center">${i+1}</td><td>${k}</td><td style="text-align:right">${v.rev.toLocaleString()}</td><td style="text-align:center">${v.qty}</td><td style="text-align:right">${(v.rev/v.qty).toFixed(0)}</td><td style="text-align:center">${v.hns.size}</td></tr>`).join('');
 
-            // อัปเดตกราฟ Bubble
             if(charts.perf) charts.perf.destroy();
             const bubbleData = sorted.map(([k, v]) => ({
                 x: v.qty,
@@ -686,7 +684,6 @@
 
         function renderCharts() {
             Object.values(charts).forEach((c, idx) => { 
-                // ไม่ทำลายกราฟ bubble และกราฟเทรนด์ที่รันจากฟังก์ชันอื่น
                 if(c && typeof c.destroy === 'function' && !['perf', 'monthlyCustTrend'].includes(Object.keys(charts)[idx])) c.destroy(); 
             });
             const getDaily = (data) => data.reduce((acc, r) => { const d = r.__date.toLocaleDateString('en-CA'); acc[d] = (acc[d]||0) + r['ยอดชำระ']; return acc; }, {});
@@ -719,14 +716,12 @@
             
             const sortedMonths = Object.keys(monthlyStats).sort();
             
-            // อัปเดตตาราง (แสดงจากใหม่ไปเก่า)
             document.getElementById('monthlyAnalysisBody').innerHTML = sortedMonths.slice().reverse().map(mKey => { 
                 const m = monthlyStats[mKey]; 
                 const payingCount = Object.values(m.userSpend).filter(v => v > 0).length;
                 return `<tr><td>${mKey}</td><td style="text-align:right;">${m.revenue.toLocaleString()}</td><td style="text-align:right;">${m.oldRevenue.toLocaleString()}</td><td style="text-align:center;">${m.allHNs.size}</td><td style="text-align:center;">${m.newHNs.size}</td><td style="text-align:center;">${m.oldHNs.size}</td><td style="text-align:center;">${payingCount}</td><td style="text-align:center;">${m.allHNs.size - payingCount}</td></tr>`;
             }).join('');
 
-            // อัปเดตกราฟเส้น Monthly Trend
             if(charts.monthlyCustTrend) charts.monthlyCustTrend.destroy();
             const ctx = document.getElementById('monthlyCustomerTrendChart').getContext('2d');
             charts.monthlyCustTrend = new Chart(ctx, {
@@ -802,8 +797,41 @@
 
         function exportPDF() {
             const element = document.getElementById('dashboardView');
-            const opt = { margin: 10, filename: 'Clinic_Report.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } };
-            html2pdf().set(opt).from(element).save();
+            const originalStyle = element.style.cssText;
+            
+            // ปรับแต่งสไตล์ชั่วคราวเพื่อการส่งออก
+            element.style.width = '1400px'; 
+            element.style.padding = '30px';
+            element.style.height = 'auto'; 
+            element.style.overflow = 'visible';
+
+            const widthPx = element.offsetWidth;
+            const heightPx = element.scrollHeight + 100; 
+
+            const opt = {
+                margin: 0,
+                filename: 'Clinic_Analysis_Report.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { 
+                    scale: 1.5, 
+                    useCORS: true,
+                    logging: false,
+                    windowWidth: widthPx,
+                    windowHeight: heightPx
+                },
+                jsPDF: { 
+                    unit: 'px', 
+                    format: [widthPx, heightPx], 
+                    orientation: 'portrait',
+                    hotfixes: ['px_scaling']
+                }
+            };
+
+            // ดำเนินการสร้าง PDF
+            html2pdf().set(opt).from(element).toPdf().get('pdf').then((pdf) => {
+                // คืนค่าสไตล์เดิม
+                element.style.cssText = originalStyle;
+            }).save();
         }
 
         function openModal(id) { document.getElementById(id).style.display = 'block'; }
