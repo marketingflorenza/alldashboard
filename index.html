@@ -365,13 +365,19 @@
             return parseFloat(s) || 0;
         }
 
+        function parseInputDate(s) {
+            if(!s) return null;
+            const p = s.split('-');
+            return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+        }
+
         function handleFileUpload(e) {
             const file = e.target.files[0];
             if(!file) return;
             const reader = new FileReader();
             reader.onload = function(evt) {
                 const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
-                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: true });
                 
                 rawData = json.map(row => {
                     const rawAmt = getRowValue(row, ['ยอดชำระ', 'ยอดเงิน', 'Amount']);
@@ -413,9 +419,10 @@
             const endStr = document.getElementById('endDate').value;
             if(!startStr || !endStr) return;
 
-            const start = new Date(startStr);
-            const end = new Date(endStr);
-            end.setHours(23,59,59);
+            const start = parseInputDate(startStr);
+            const end = parseInputDate(endStr);
+            if (end) end.setHours(23, 59, 59, 999);
+
             filteredData = rawData.filter(r => r.__date >= start && r.__date <= end);
             
             compareData = [];
@@ -423,9 +430,9 @@
                 const cStartStr = document.getElementById('compareStartDate').value;
                 const cEndStr = document.getElementById('compareEndDate').value;
                 if(cStartStr && cEndStr) {
-                    const cStart = new Date(cStartStr);
-                    const cEnd = new Date(cEndStr);
-                    cEnd.setHours(23,59,59);
+                    const cStart = parseInputDate(cStartStr);
+                    const cEnd = parseInputDate(cEndStr);
+                    if (cEnd) cEnd.setHours(23, 59, 59, 999);
                     compareData = rawData.filter(r => r.__date >= cStart && r.__date <= cEnd);
                 }
             }
@@ -436,26 +443,25 @@
             processCustomerData();
             renderStats();
             renderSegments();
-            renderCharts();
-            updateCategoryStatsTable();
-            updatePerformanceMatrix();
+            updatePerformanceMatrix(); // นี่จะรวมกราฟ Bubble ด้วย
+            renderMonthlyDetailedAnalysis(); // นี่จะรวมกราฟเส้นลูกค้าด้วย
+            renderCharts(); // กราฟรายวัน/เดือนทั่วไป
             renderDetailsTable();
             populateSegmentFilter();
-            renderMonthlyDetailedAnalysis();
         }
 
         function processCustomerData() {
-            const start = new Date(document.getElementById('startDate').value);
-            const end = new Date(document.getElementById('endDate').value);
-            end.setHours(23,59,59);
+            const start = parseInputDate(document.getElementById('startDate').value);
+            const end = parseInputDate(document.getElementById('endDate').value);
+            if (end) end.setHours(23,59,59);
             const hnMap = {};
             filteredData.forEach(r => {
                 if(!r.HN) return;
                 if(!hnMap[r.HN]) {
                     hnMap[r.HN] = { 
                         hn: r.HN, 
-                        name: r['ชื่อ-สกุล'] || '-', 
-                        phone: r['เบอร์โทร'] || r['โทรศัพท์'] || '-', 
+                        name: getRowValue(r, ['ชื่อ-สกุล', 'ชื่อ']) || '-', 
+                        phone: getRowValue(r, ['เบอร์โทร', 'โทรศัพท์']) || '-', 
                         total: 0, 
                         visits: new Set(), 
                         items: new Set(), 
@@ -464,8 +470,8 @@
                     };
                 }
                 hnMap[r.HN].total += r['ยอดชำระ'];
-                hnMap[r.HN].visits.add(r['วันที่ขาย']);
-                if(r['รายการ']) hnMap[r.HN].items.add(r['รายการ']);
+                hnMap[r.HN].visits.add(r.__date.toDateString());
+                if(getRowValue(r, ['รายการ'])) hnMap[r.HN].items.add(getRowValue(r, ['รายการ']));
                 if(r.__date > hnMap[r.HN].lastDate) hnMap[r.HN].lastDate = r.__date;
             });
             processedCustomers = Object.values(hnMap).map(c => {
@@ -476,7 +482,7 @@
 
         function calculateMetrics(dataset, customers) {
             const rev = dataset.reduce((s, r) => s + (r['ยอดชำระ'] || 0), 0);
-            const visits = new Set(dataset.map(r => r.HN + r['วันที่ขาย'])).size;
+            const visits = new Set(dataset.map(r => r.HN + r.__date.toDateString())).size;
             const unique = customers.length;
             const payingCustomers = customers.filter(c => c.total > 0);
             const newReg = customers.filter(c => c.isNew);
@@ -484,12 +490,11 @@
             const repeatCusts = customers.filter(c => c.visits.size > 1);
             const oldRepeatCusts = customers.filter(c => !c.isNew && c.visits.size > 1);
             const oldRepeatSales = oldRepeatCusts.reduce((s,c) => s + c.total, 0);
-            const oldRepeatCount = oldRepeatCusts.length;
             
             return {
                 rev, visits, unique, payingCount: payingCustomers.length,
                 newSales, oldSales: rev - newSales, 
-                oldRepeatSales, oldRepeatCount,
+                oldRepeatSales, oldRepeatCount: oldRepeatCusts.length,
                 newReg: newReg.length,
                 oldCust: unique - newReg.length,
                 newPaying: newReg.filter(c => c.total > 0).length,
@@ -508,7 +513,7 @@
                     if(!r.HN) return;
                     if(!compareHnMap[r.HN]) compareHnMap[r.HN] = { hn: r.HN, total: 0, visits: new Set() };
                     compareHnMap[r.HN].total += r['ยอดชำระ'];
-                    compareHnMap[r.HN].visits.add(r['วันที่ขาย']);
+                    compareHnMap[r.HN].visits.add(r.__date.toDateString());
                 });
                 prev = calculateMetrics(compareData, Object.values(compareHnMap));
             }
@@ -561,7 +566,7 @@
             let name = (getRowValue(row, ['รายการ']) || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ';
             if (name.includes('e-jal')) return 'E-Jal';
-            if (name.includes('ค่าเข้ารับการปรึกษาแพทย์')) return 'ค่าเข้ารับการปรึกษาแพทย์';
+            if (name.includes('ค่าเข้ารับการปรึกษาแพทย์')) return 'ค่าแพทย์';
             if (name.includes('ultraformer')) return 'Ultraformer';
             if (name.includes('aesthefill')) return 'Aesthe Fill'; 
             if (name.includes('botox') || name.includes('โบ')) return 'Botox';
@@ -570,26 +575,26 @@
             if (name.includes('pico') || name.includes('เลเซอร์')) return 'Picolaser';
             if (name.includes('treatment') || name.includes('ทรีทเมนท์')) return 'Treatment';
             if (name.includes('ศัลยกรรม')) return 'Surgery';
-            return 'General / Others';
+            return 'ทั่วไป/อื่นๆ';
         }
 
         function updateCategoryStatsTable() {
             const startStr = document.getElementById('startDate').value;
             const endStr = document.getElementById('endDate').value;
-            const start = startStr ? new Date(startStr) : new Date(0);
-            const end = endStr ? new Date(endStr) : new Date();
-            end.setHours(23,59,59);
+            const start = parseInputDate(startStr);
+            const end = parseInputDate(endStr);
+            if (end) end.setHours(23,59,59);
 
             const getCatData = (data) => data.reduce((acc, r) => {
                 const c = getCategoryForRow(r);
                 if(!acc[c]) acc[c] = { rev:0, items: new Set(), customers: {}, newCusts: new Set(), oldCusts: new Set() };
                 acc[c].rev += r['ยอดชำระ'];
-                if(r['รายการ']) acc[c].items.add(r['รายการ']);
+                const itemLabel = getRowValue(r, ['รายการ']);
+                if(itemLabel) acc[c].items.add(itemLabel);
                 if(r.HN) {
                     if(!acc[c].customers[r.HN]) acc[c].customers[r.HN] = 0;
                     acc[c].customers[r.HN] += r['ยอดชำระ'];
-                    const regDate = r.__regDate;
-                    const isNew = regDate && regDate >= start && regDate <= end;
+                    const isNew = r.__regDate && r.__regDate >= start && r.__regDate <= end;
                     if (isNew) acc[c].newCusts.add(r.HN); else acc[c].oldCusts.add(r.HN);
                 }
                 return acc;
@@ -617,16 +622,60 @@
 
         function updatePerformanceMatrix() {
             const items = filteredData.reduce((acc, r) => {
-                if(r['รายการ']) {
-                    if(!acc[r['รายการ']]) acc[r['รายการ']] = { rev:0, qty:0, hns: new Set() };
-                    acc[r['รายการ']].rev += (r['ยอดชำระ'] || 0);
-                    acc[r['รายการ']].qty++;
-                    acc[r['รายการ']].hns.add(r.HN);
+                const label = getRowValue(r, ['รายการ']);
+                if(label) {
+                    if(!acc[label]) acc[label] = { rev:0, qty:0, hns: new Set() };
+                    acc[label].rev += (r['ยอดชำระ'] || 0);
+                    acc[label].qty++;
+                    acc[label].hns.add(r.HN);
                 }
                 return acc;
             }, {});
             const sorted = Object.entries(items).sort((a,b) => b[1].rev - a[1].rev).slice(0, 10);
+            
+            // อัปเดตตาราง
             document.getElementById('performanceMatrixBody').innerHTML = sorted.map(([k,v], i) => `<tr><td style="text-align:center">${i+1}</td><td>${k}</td><td style="text-align:right">${v.rev.toLocaleString()}</td><td style="text-align:center">${v.qty}</td><td style="text-align:right">${(v.rev/v.qty).toFixed(0)}</td><td style="text-align:center">${v.hns.size}</td></tr>`).join('');
+
+            // อัปเดตกราฟ Bubble
+            if(charts.perf) charts.perf.destroy();
+            const bubbleData = sorted.map(([k, v]) => ({
+                x: v.qty,
+                y: v.rev / v.qty,
+                r: Math.sqrt(v.rev) / 25 + 5,
+                label: k,
+                totalRev: v.rev
+            }));
+
+            const ctx = document.getElementById('performanceMatrixChart').getContext('2d');
+            charts.perf = new Chart(ctx, {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: 'บริการ 10 อันดับแรก',
+                        data: bubbleData,
+                        backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                        borderColor: '#6366f1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'จำนวนครั้งที่ขาย (Volume)' } },
+                        y: { title: { display: true, text: 'ราคาเฉลี่ย (Avg Price)' } }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const r = ctx.raw;
+                                    return [r.label, `ยอดรวม: ${r.totalRev.toLocaleString()} บ.`, `ราคาเฉลี่ย: ${Math.round(r.y).toLocaleString()} บ.`];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         function renderDetailsTable() {
@@ -636,13 +685,18 @@
         }
 
         function renderCharts() {
-            Object.values(charts).forEach(c => { if(c && typeof c.destroy === 'function') c.destroy(); });
-            const getDaily = (data) => data.reduce((acc, r) => { const d = r['วันที่ขาย']; acc[d] = (acc[d]||0) + r['ยอดชำระ']; return acc; }, {});
+            Object.values(charts).forEach((c, idx) => { 
+                // ไม่ทำลายกราฟ bubble และกราฟเทรนด์ที่รันจากฟังก์ชันอื่น
+                if(c && typeof c.destroy === 'function' && !['perf', 'monthlyCustTrend'].includes(Object.keys(charts)[idx])) c.destroy(); 
+            });
+            const getDaily = (data) => data.reduce((acc, r) => { const d = r.__date.toLocaleDateString('en-CA'); acc[d] = (acc[d]||0) + r['ยอดชำระ']; return acc; }, {});
             const curDaily = getDaily(filteredData);
-            const sortedDates = Object.keys(curDaily).sort((a,b) => parseThaiDate(a) - parseThaiDate(b));
+            const sortedDates = Object.keys(curDaily).sort();
             charts.daily = new Chart(document.getElementById('dailyChart'), { type: 'line', data: { labels: sortedDates, datasets: [{ label: 'ปัจจุบัน', data: sortedDates.map(d => curDaily[d]), borderColor: '#6366f1', fill: true, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false } });
+            
             const monthly = filteredData.reduce((acc, r) => { const key = `${r.__date.getFullYear()}-${String(r.__date.getMonth()+1).padStart(2,'0')}`; acc[key] = (acc[key]||0) + r['ยอดชำระ']; return acc; }, {});
             charts.monthly = new Chart(document.getElementById('monthlyChart'), { type: 'bar', data: { labels: Object.keys(monthly).sort(), datasets: [{ label: 'ยอดขายรายเดือน', data: Object.keys(monthly).sort().map(m => monthly[m]), backgroundColor: '#3b82f6' }] }, options: { responsive: true, maintainAspectRatio: false } });
+            
             const freqMap = processedCustomers.reduce((acc, c) => { acc[c.visits.size] = (acc[c.visits.size]||0) + 1; return acc; }, {});
             const freqLabels = Object.keys(freqMap).sort((a,b)=>a-b);
             charts.freq = new Chart(document.getElementById('frequencyChart'), { type: 'bar', data: { labels: freqLabels.map(l => l + ' ครั้ง'), datasets: [{ label: 'จำนวนคน', data: freqLabels.map(l => freqMap[l]), backgroundColor: '#8b5cf6' }] }, options: { responsive: true, maintainAspectRatio: false } });
@@ -662,22 +716,50 @@
                 }
                 return acc;
             }, {});
-            const sortedMonths = Object.keys(monthlyStats).sort().reverse();
-            document.getElementById('monthlyAnalysisBody').innerHTML = sortedMonths.map(mKey => { 
+            
+            const sortedMonths = Object.keys(monthlyStats).sort();
+            
+            // อัปเดตตาราง (แสดงจากใหม่ไปเก่า)
+            document.getElementById('monthlyAnalysisBody').innerHTML = sortedMonths.slice().reverse().map(mKey => { 
                 const m = monthlyStats[mKey]; 
                 const payingCount = Object.values(m.userSpend).filter(v => v > 0).length;
                 return `<tr><td>${mKey}</td><td style="text-align:right;">${m.revenue.toLocaleString()}</td><td style="text-align:right;">${m.oldRevenue.toLocaleString()}</td><td style="text-align:center;">${m.allHNs.size}</td><td style="text-align:center;">${m.newHNs.size}</td><td style="text-align:center;">${m.oldHNs.size}</td><td style="text-align:center;">${payingCount}</td><td style="text-align:center;">${m.allHNs.size - payingCount}</td></tr>`;
             }).join('');
+
+            // อัปเดตกราฟเส้น Monthly Trend
+            if(charts.monthlyCustTrend) charts.monthlyCustTrend.destroy();
+            const ctx = document.getElementById('monthlyCustomerTrendChart').getContext('2d');
+            charts.monthlyCustTrend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedMonths,
+                    datasets: [
+                        { label: 'ลูกค้าใหม่', data: sortedMonths.map(m => monthlyStats[m].newHNs.size), borderColor: '#f59e0b', tension: 0.2 },
+                        { label: 'ลูกค้าเก่า', data: sortedMonths.map(m => monthlyStats[m].oldHNs.size), borderColor: '#3b82f6', tension: 0.2 },
+                        { label: 'จ่ายเงินจริง', data: sortedMonths.map(m => Object.values(monthlyStats[m].userSpend).filter(v => v > 0).length), borderColor: '#10b981', tension: 0.2 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
         }
 
         function parseThaiDate(s) { 
             if(!s) return null; if (s instanceof Date) return s; 
+            if (typeof s === 'number' || (!isNaN(s) && !s.toString().includes('/') && !s.toString().includes('-'))) {
+                const serial = parseFloat(s);
+                if (serial > 20000) return new Date(Math.round((serial - 25569) * 86400 * 1000));
+            }
             const str = s.toString().trim(); const p = str.split(/[\/\-]/); 
             if(p.length !== 3) return null; 
             let d, m, y;
             if (p[0].length === 4) { y = parseInt(p[0]); m = parseInt(p[1]); d = parseInt(p[2]); } 
             else { d = parseInt(p[0]); m = parseInt(p[1]); y = parseInt(p[2]); }
             if(y > 2500) y -= 543;
+            if(y < 100) y += 2000;
             const date = new Date(y, m-1, d);
             return isNaN(date.getTime()) ? null : date;
         }
@@ -686,13 +768,19 @@
             const cust = processedCustomers.find(c => c.hn === hn); if(!cust) return; 
             const history = rawData.filter(r => r.HN === hn).sort((a,b) => b.__date - a.__date);
             document.getElementById('custModalTitle').textContent = `👤 ${cust.name} (HN: ${hn})`;
-            document.getElementById('custModalBody').innerHTML = `<div style="background:#f8fafc; padding:15px; border-radius:10px; margin-bottom:15px;"><strong>เบอร์:</strong> ${cust.phone} | <strong>ยอดรวม:</strong> ${cust.total.toLocaleString()} บ.</div><table><thead><tr><th>วันที่</th><th>รายการ</th><th style="text-align:right">ยอด</th></tr></thead><tbody>${history.map(h => `<tr><td>${h['วันที่ขาย']}</td><td>${h['รายการ']}</td><td style="text-align:right">${h['ยอดชำระ'].toLocaleString()}</td></tr>`).join('')}</tbody></table>`;
+            document.getElementById('custModalBody').innerHTML = `<div style="background:#f8fafc; padding:15px; border-radius:10px; margin-bottom:15px;"><strong>เบอร์:</strong> ${cust.phone} | <strong>ยอดรวม:</strong> ${cust.total.toLocaleString()} บ.</div><table><thead><tr><th>วันที่</th><th>รายการ</th><th style="text-align:right">ยอด</th></tr></thead><tbody>${history.map(h => `<tr><td>${h.__date.toLocaleDateString('th-TH')}</td><td>${getRowValue(h, ['รายการ']) || '-'}</td><td style="text-align:right">${h['ยอดชำระ'].toLocaleString()}</td></tr>`).join('')}</tbody></table>`;
             openModal('custModal'); 
         }
 
         function showCategoryCustomers(catName) {
             const trans = filteredData.filter(r => getCategoryForRow(r) === catName && r.HN);
-            const hnGroups = trans.reduce((acc, r) => { if(!acc[r.HN]) acc[r.HN] = { name: r['ชื่อ-สกุล'] || '-', total: 0, items: new Set() }; acc[r.HN].total += r['ยอดชำระ']; acc[r.HN].items.add(r['รายการ']); return acc; }, {});
+            const hnGroups = trans.reduce((acc, r) => { 
+                if(!acc[r.HN]) acc[r.HN] = { name: getRowValue(r, ['ชื่อ-สกุล', 'ชื่อ']) || '-', total: 0, items: new Set() }; 
+                acc[r.HN].total += r['ยอดชำระ']; 
+                const label = getRowValue(r, ['รายการ']);
+                if(label) acc[r.HN].items.add(label); 
+                return acc; 
+            }, {});
             const list = Object.entries(hnGroups).map(([hn, d]) => ({ hn, ...d })).sort((a,b)=>b.total-a.total);
             document.getElementById('listModalTitle').textContent = `📂 หมวดหมู่: ${catName}`;
             document.getElementById('listModalBody').innerHTML = `<table><thead><tr><th>HN</th><th>ชื่อ</th><th style="text-align:right">ยอดรวม</th></tr></thead><tbody>${list.map(c => `<tr><td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td><td>${c.name}</td><td style="text-align:right">${c.total.toLocaleString()}</td></tr>`).join('')}</tbody></table>`;
