@@ -347,6 +347,33 @@
             document.getElementById('compareRange').style.display = this.checked ? 'flex' : 'none';
         });
 
+        // ฟังก์ชันช่วยจัดการวันที่แบบไทยและช่วงเวลา (Timezone Thailand +7)
+        function parseThaiDate(s) { 
+            if(!s) return null; 
+            if (s instanceof Date) return s; 
+            const str = s.toString().trim(); 
+            const p = str.split(/[\/\-]/); 
+            if(p.length !== 3) return null; 
+            
+            let d = parseInt(p[0]);
+            let m = parseInt(p[1]) - 1;
+            let y = parseInt(p[2]); 
+            
+            // ปรับปีพุทธศักราชเป็นคริสต์ศักราช
+            if(y > 2500) y -= 543; 
+            
+            // สร้าง Date Object ในเวลาท้องถิ่น (Local Time) โดยตั้งค่าเป็นเที่ยงวันเพื่อเลี่ยงปัญหาเรื่องชั่วโมง Timezone เลื่อนตอนเปรียบเทียบ
+            return new Date(y, m, d, 12, 0, 0); 
+        }
+
+        // แปลง ISO String จาก input date เป็น Date object ที่เวลา 12:00:00 (Local)
+        function getControlDate(id) {
+            const val = document.getElementById(id).value;
+            if(!val) return null;
+            const p = val.split('-');
+            return new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]), 12, 0, 0);
+        }
+
         function handleFileUpload(e) {
             const file = e.target.files[0];
             if(!file) return;
@@ -369,6 +396,7 @@
                     const dates = rawData.map(r => r.__date);
                     const maxDate = new Date(Math.max(...dates));
                     const minDate = new Date(Math.min(...dates));
+                    
                     document.getElementById('startDate').value = minDate.toISOString().split('T')[0];
                     document.getElementById('endDate').value = maxDate.toISOString().split('T')[0];
                     
@@ -386,24 +414,24 @@
         }
 
         function applyFilters() {
-            const startStr = document.getElementById('startDate').value;
-            const endStr = document.getElementById('endDate').value;
-            if(!startStr || !endStr) return;
+            const start = getControlDate('startDate');
+            const end = getControlDate('endDate');
+            if(!start || !end) return;
 
-            const start = new Date(startStr);
-            const end = new Date(endStr);
-            end.setHours(23,59,59);
-            filteredData = rawData.filter(r => r.__date >= start && r.__date <= end);
+            // ปรับเปรียบเทียบโดยใช้เวลา 00:00 - 23:59 ใน Local Time (Thai Context)
+            const startLimit = new Date(start); startLimit.setHours(0,0,0,0);
+            const endLimit = new Date(end); endLimit.setHours(23,59,59,999);
+
+            filteredData = rawData.filter(r => r.__date >= startLimit && r.__date <= endLimit);
             
             compareData = [];
             if(document.getElementById('compareToggle').checked) {
-                const cStartStr = document.getElementById('compareStartDate').value;
-                const cEndStr = document.getElementById('compareEndDate').value;
-                if(cStartStr && cEndStr) {
-                    const cStart = new Date(cStartStr);
-                    const cEnd = new Date(cEndStr);
-                    cEnd.setHours(23,59,59);
-                    compareData = rawData.filter(r => r.__date >= cStart && r.__date <= cEnd);
+                const cStart = getControlDate('compareStartDate');
+                const cEnd = getControlDate('compareEndDate');
+                if(cStart && cEnd) {
+                    const cStartLimit = new Date(cStart); cStartLimit.setHours(0,0,0,0);
+                    const cEndLimit = new Date(cEnd); cEndLimit.setHours(23,59,59,999);
+                    compareData = rawData.filter(r => r.__date >= cStartLimit && r.__date <= cEndLimit);
                 }
             }
             updateDashboard();
@@ -422,9 +450,11 @@
         }
 
         function processCustomerData() {
-            const start = new Date(document.getElementById('startDate').value);
-            const end = new Date(document.getElementById('endDate').value);
-            end.setHours(23,59,59);
+            const start = getControlDate('startDate');
+            const end = getControlDate('endDate');
+            const startLimit = new Date(start); startLimit.setHours(0,0,0,0);
+            const endLimit = new Date(end); endLimit.setHours(23,59,59,999);
+
             const hnMap = {};
             filteredData.forEach(r => {
                 if(!r.HN) return;
@@ -437,7 +467,7 @@
                         visits: new Set(), 
                         items: new Set(), 
                         lastDate: r.__date, 
-                        isNew: (r.__regDate && r.__regDate >= start && r.__regDate <= end) 
+                        isNew: (r.__regDate && r.__regDate >= startLimit && r.__regDate <= endLimit) 
                     };
                 }
                 hnMap[r.HN].total += r['ยอดชำระ'];
@@ -459,7 +489,6 @@
             const newReg = customers.filter(c => c.isNew);
             const newSales = newReg.reduce((s,c) => s + c.total, 0);
             
-            // Repeat Sales calculation
             const repeatCusts = customers.filter(c => c.visits.size > 1);
             const oldRepeatCusts = customers.filter(c => !c.isNew && c.visits.size > 1);
             const oldRepeatSales = oldRepeatCusts.reduce((s,c) => s + c.total, 0);
@@ -483,13 +512,16 @@
             const cur = calculateMetrics(filteredData, processedCustomers);
             let prev = null;
             if(document.getElementById('compareToggle').checked && compareData.length > 0) {
-                const cStart = new Date(document.getElementById('compareStartDate').value);
-                const cEnd = new Date(document.getElementById('compareEndDate').value);
+                const cStartVal = getControlDate('compareStartDate');
+                const cEndVal = getControlDate('compareEndDate');
+                const cStartLimit = new Date(cStartVal); cStartLimit.setHours(0,0,0,0);
+                const cEndLimit = new Date(cEndVal); cEndLimit.setHours(23,59,59,999);
+
                 const compareHnMap = {};
                 compareData.forEach(r => {
                     if(!r.HN) return;
                     if(!compareHnMap[r.HN]) {
-                        compareHnMap[r.HN] = { hn: r.HN, total: 0, visits: new Set(), isNew: (r.__regDate && r.__regDate >= cStart && r.__regDate <= cEnd) };
+                        compareHnMap[r.HN] = { hn: r.HN, total: 0, visits: new Set(), isNew: (r.__regDate && r.__regDate >= cStartLimit && r.__regDate <= cEndLimit) };
                     }
                     compareHnMap[r.HN].total += r['ยอดชำระ'];
                     compareHnMap[r.HN].visits.add(r['วันที่ขาย']);
@@ -551,26 +583,32 @@
             }).join('');
         }
 
+        // --- ระบบจัดหมวดหมู่สินค้าอัตโนมัติ (เพิ่ม Mounjaro) ---
         function getCategoryForRow(row) {
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ';
+            
+            // หมวดหมู่เฉพาะเจาะจง (ลำดับความสำคัญสูง)
+            if (name.includes('mounjaro')) return 'Mounjaro';
             if (name.includes('e-jal')) return 'E-Jal';
-            if (name.includes('ค่าเข้ารับการปรึกษาแพทย์')) return 'ค่าเข้ารับการปรึกษาแพทย์';
             if (name.includes('ultra for mer')) return 'Ultrafomer';
             if (name.includes('aesthefill') || name.includes('aesthe fill')) return 'Aesthe Fill'; 
             if (name.includes('profhilo')) return 'Profhilo';
+            if (name.includes('sculptra')) return 'Sculptra';
+            if (name.includes('rejuran')) return 'Rejuran';
+            if (name.includes('juvelook')) return 'Juvelook';
+            if (name.includes('exosome')) return 'Exosome';
+            if (name.includes('morpheus')) return 'Morpheus8'; 
+
+            // หมวดหมู่อื่นๆ
+            if (name.includes('ค่าเข้ารับการปรึกษาแพทย์')) return 'ค่าเข้ารับการปรึกษาแพทย์';
             if (name.includes('melasma') || name.includes('ฉีดฝ้า')) return 'Melasma';
             if (name.includes('q switch') || name.includes('q-switch')) return 'Q Switch';
             if (name.includes('bsam')) return 'BSAM';
             if (name.includes('keloid')) return 'Keloid';
-            if (name.includes('morpheus')) return 'Morpheus8'; 
             if (name.includes('nad')) return 'NAD'; 
             if (name.includes('ปากกาลดน้ำหนัก') || name.includes('weight loss pen') || name.includes('saxenda')) return 'ปากกาลดน้ำหนัก'; 
             if (name.includes('peelling') || name.includes('peeling')) return 'Peelling'; 
-            if (name.includes('sculptra')) return 'Sculptra';
-            if (name.includes('exosome')) return 'Exosome';
-            if (name.includes('rejuran')) return 'Rejuran';
-            if (name.includes('juvelook')) return 'Juvelook';
             if (name.includes('subsicion') || name.includes('subcision')) return 'Subsicion';
             if (name.includes('antidark')) return 'Antidark';
             if (name.includes('helios')) return 'Helios';
@@ -613,9 +651,10 @@
         function updateCategoryStatsTable() {
             const startStr = document.getElementById('startDate').value;
             const endStr = document.getElementById('endDate').value;
-            const start = startStr ? new Date(startStr) : new Date(0);
-            const end = endStr ? new Date(endStr) : new Date();
-            end.setHours(23,59,59);
+            const start = getControlDate('startDate');
+            const end = getControlDate('endDate');
+            const startLimit = start ? new Date(start).setHours(0,0,0,0) : 0;
+            const endLimit = end ? new Date(end).setHours(23,59,59,999) : Infinity;
 
             const getCatData = (data) => data.reduce((acc, r) => {
                 const c = getCategoryForRow(r);
@@ -627,7 +666,7 @@
                     acc[c].customers[r.HN] += r['ยอดชำระ'];
                     
                     const regDate = r.__regDate;
-                    const isNew = regDate && regDate >= start && regDate <= end;
+                    const isNew = regDate && regDate >= startLimit && regDate <= endLimit;
                     if (isNew) {
                         acc[c].newCusts.add(r.HN);
                     } else {
@@ -690,16 +729,63 @@
                 datasets.push({ label: 'เปรียบเทียบ', data: prevDates.map(d => prevDaily[d]), borderColor: '#9ca3af', borderDash: [5,5], fill: false, tension: 0.3 });
             }
             charts.daily = new Chart(document.getElementById('dailyChart'), { type: 'line', data: { labels: sortedDates, datasets }, options: { responsive: true, maintainAspectRatio: false } });
-            const monthly = filteredData.reduce((acc, r) => { const key = `${r.__date.getFullYear()}-${String(r.__date.getMonth()+1).padStart(2,'0')}`; acc[key] = (acc[key]||0) + r['ยอดชำระ']; return acc; }, {});
+            
+            const monthly = filteredData.reduce((acc, r) => { 
+                const key = `${r.__date.getFullYear()}-${String(r.__date.getMonth()+1).padStart(2,'0')}`; 
+                acc[key] = (acc[key]||0) + r['ยอดชำระ']; 
+                return acc; 
+            }, {});
             charts.monthly = new Chart(document.getElementById('monthlyChart'), { type: 'bar', data: { labels: Object.keys(monthly).sort(), datasets: [{ label: 'ยอดขายรายเดือน', data: Object.keys(monthly).sort().map(m => monthly[m]), backgroundColor: '#3b82f6' }] }, options: { responsive: true, maintainAspectRatio: false } });
+            
             const itemStats = filteredData.reduce((acc, r) => { if(r['รายการ']) { if(!acc[r['รายการ']]) acc[r['รายการ']] = { rev:0, qty:0 }; acc[r['รายการ']].rev += r['ยอดชำระ']; acc[r['รายการ']].qty++; } return acc; }, {});
             const sortedPerformance = Object.entries(itemStats).sort((a,b) => b[1].rev - a[1].rev).slice(0, 10);
             const avgQty = sortedPerformance.reduce((s, x) => s + x[1].qty, 0) / sortedPerformance.length;
             const avgPrice = sortedPerformance.reduce((s, x) => s + (x[1].rev / x[1].qty), 0) / sortedPerformance.length;
-            charts.perf = new Chart(document.getElementById('performanceMatrixChart'), { type: 'bubble', data: { datasets: [{ label: 'Top 10 Services', data: sortedPerformance.map(([k, v]) => { const unitPrice = v.rev / v.qty; return { x: v.qty, y: unitPrice, r: Math.min(25, Math.sqrt(v.rev) / 25 + 5), label: k, totalRev: v.rev }; }), backgroundColor: (context) => { const item = context.raw; if(!item) return 'rgba(99, 102, 241, 0.6)'; if(item.x >= avgQty && item.y >= avgPrice) return 'rgba(16, 185, 129, 0.7)'; if(item.x >= avgQty && item.y < avgPrice) return 'rgba(59, 130, 246, 0.7)'; if(item.x < avgQty && item.y >= avgPrice) return 'rgba(245, 158, 11, 0.7)'; return 'rgba(236, 72, 153, 0.7)'; } }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => { const r = ctx.raw; return [`รายการ: ${r.label}`, `ยอดขายรวม: ${r.totalRev.toLocaleString()} บ.`, `จำนวน: ${r.x} ครั้ง`, `ราคาเฉลี่ย: ${Math.round(r.y).toLocaleString()} บ.`]; } } } }, scales: { x: { title: { display: true, text: 'จำนวนครั้งที่ขาย (Volume)' } }, y: { title: { display: true, text: 'ราคาเฉลี่ยต่อหน่วย (Avg Price)' } } } } });
+            
+            charts.perf = new Chart(document.getElementById('performanceMatrixChart'), { 
+                type: 'bubble', 
+                data: { 
+                    datasets: [{ 
+                        label: 'Top 10 Services', 
+                        data: sortedPerformance.map(([k, v]) => { 
+                            const unitPrice = v.rev / v.qty; 
+                            return { x: v.qty, y: unitPrice, r: Math.min(25, Math.sqrt(v.rev) / 25 + 5), label: k, totalRev: v.rev }; 
+                        }), 
+                        backgroundColor: (context) => { 
+                            const item = context.raw; 
+                            if(!item) return 'rgba(99, 102, 241, 0.6)'; 
+                            if(item.x >= avgQty && item.y >= avgPrice) return 'rgba(16, 185, 129, 0.7)'; 
+                            if(item.x >= avgQty && item.y < avgPrice) return 'rgba(59, 130, 246, 0.7)'; 
+                            if(item.x < avgQty && item.y >= avgPrice) return 'rgba(245, 158, 11, 0.7)'; 
+                            return 'rgba(236, 72, 153, 0.7)'; 
+                        } 
+                    }] 
+                }, 
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { display: false }, 
+                        tooltip: { callbacks: { label: (ctx) => { const r = ctx.raw; return [`รายการ: ${r.label}`, `ยอดขายรวม: ${r.totalRev.toLocaleString()} บ.`, `จำนวน: ${r.x} ครั้ง`, `ราคาเฉลี่ย: ${Math.round(r.y).toLocaleString()} บ.`]; } } } 
+                    }, 
+                    scales: { 
+                        x: { title: { display: true, text: 'จำนวนครั้งที่ขาย (Volume)' } }, 
+                        y: { title: { display: true, text: 'ราคาเฉลี่ยต่อหน่วย (Avg Price)' } } 
+                    } 
+                } 
+            });
+            
             const freqMap = processedCustomers.reduce((acc, c) => { acc[c.visits.size] = (acc[c.visits.size]||0) + 1; return acc; }, {});
             const freqLabels = Object.keys(freqMap).sort((a,b)=>a-b);
-            charts.freq = new Chart(document.getElementById('frequencyChart'), { type: 'bar', data: { labels: freqLabels.map(l => l + ' ครั้ง'), datasets: [{ label: 'จำนวนคน', data: freqLabels.map(l => freqMap[l]), backgroundColor: '#8b5cf6' }] }, options: { responsive: true, maintainAspectRatio: false, onClick: (evt, elements) => { if (elements.length > 0) { const index = elements[0].index; const freqLabel = charts.freq.data.labels[index]; const freqValue = parseInt(freqLabel); showFrequencyCustomers(freqValue); } } } });
+            charts.freq = new Chart(document.getElementById('frequencyChart'), { 
+                type: 'bar', 
+                data: { labels: freqLabels.map(l => l + ' ครั้ง'), datasets: [{ label: 'จำนวนคน', data: freqLabels.map(l => freqMap[l]), backgroundColor: '#8b5cf6' }] }, 
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    onClick: (evt, elements) => { if (elements.length > 0) { const index = elements[0].index; const freqLabel = charts.freq.data.labels[index]; const freqValue = parseInt(freqLabel); showFrequencyCustomers(freqValue); } } 
+                } 
+            });
         }
 
         function renderMonthlyDetailedAnalysis() {
@@ -719,7 +805,7 @@
                         m.newHNs.add(r.HN);
                     } else {
                         m.oldHNs.add(r.HN);
-                        m.oldRevenue += r['ยอดชำระ']; // Calculate revenue from old customers
+                        m.oldRevenue += r['ยอดชำระ']; 
                     }
                 }
                 return acc;
@@ -804,7 +890,6 @@
             openModal('listModal');
         }
 
-        function parseThaiDate(s) { if(!s) return null; if (s instanceof Date) return s; const str = s.toString().trim(); const p = str.split(/[\/\-]/); if(p.length !== 3) return null; let y = parseInt(p[2]); if(y > 2500) y -= 543; return new Date(y, parseInt(p[1])-1, parseInt(p[0])); }
         function showCustDetail(hn) { const cust = processedCustomers.find(c => c.hn === hn); if(!cust) return; const history = rawData.filter(r => r.HN === hn).sort((a,b) => b.__date - a.__date); document.getElementById('custModalTitle').textContent = `👤 ${cust.name} (HN: ${hn})`; document.getElementById('custModalBody').innerHTML = `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:20px; background:#f8fafc; padding:15px; border-radius:10px;"><div><strong>เบอร์โทร:</strong> ${cust.phone}</div><div><strong>กลุ่มยอดซื้อ:</strong> ${cust.segmentLabel}</div><div><strong>ยอดรวม:</strong> ${cust.total.toLocaleString()} บาท</div><div><strong>มาทั้งหมด:</strong> ${cust.visits.size} ครั้ง</div></div><table><thead><tr><th>วันที่</th><th>รายการ</th><th style="text-align:right">ยอด</th></tr></thead><tbody>${history.map(h => `<tr><td>${h['วันที่ขาย']}</td><td>${h['รายการ']}</td><td style="text-align:right">${h['ยอดชำระ'].toLocaleString()}</td></tr>`).join('')}</tbody></table>`; openModal('custModal'); }
 
         function showAIModal() {
@@ -815,7 +900,7 @@
             const endStr = document.getElementById('endDate').value;
             const dateDisplay = (startStr && endStr) ? `${startStr} ถึง ${endStr}` : "ข้อมูลทั้งหมดในไฟล์";
 
-            let prompt = `Role: Clinic Business Strategist\nTask: Analyze data and suggest growth strategies.\nAnalysis Period: ${dateDisplay}\n\n`;
+            let prompt = `Role: Clinic Business Strategist\nTask: Analyze data and suggest growth strategies.\nAnalysis Period: ${dateDisplay} (Thai Timezone Context)\n\n`;
             prompt += `--- 1. Business Overview ---\n`;
             prompt += `- ยอดขายรวม: ${fNum(cur.rev)} บาท\n`;
             prompt += `- ยอดต่อหัว (Avg/Head): ${fNum(cur.avgHead)} บาท/คน\n`;
