@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinic Sales Analytics Dashboard (Ultimate Pro - AI Strategic Prompt)</title>
+    <title>Clinic Sales Analytics Dashboard (Ultimate Pro - Full Feature Set)</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -84,7 +84,6 @@
 
         .main-content { padding: 30px; }
 
-        /* Report Metadata Header (Visible in PDF) */
         .report-metadata {
             display: none; 
             background: #f8fafc;
@@ -99,7 +98,6 @@
         .meta-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
         .meta-value { font-size: 15px; font-weight: 600; color: var(--text-main); }
 
-        /* Business Overview Grid */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 40px; }
         .stat-card { 
             background: white; padding: 15px; border-radius: var(--border-radius); 
@@ -110,7 +108,6 @@
         .stat-value { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
 
-        /* Highlights (Customer Behaviors) */
         .highlight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 40px; }
         .highlight-card {
             padding: 25px; border-radius: 20px; color: white; position: relative; overflow: hidden;
@@ -192,7 +189,6 @@
             </div>
         </div>
 
-        <!-- Capture this element for PDF -->
         <div id="dashboardView"> 
             <div class="main-content" style="background: white;">
                 <div id="initialState" style="text-align:center; padding: 80px; color: #9ca3af;">
@@ -202,7 +198,6 @@
 
                 <div id="dashboardDataView" style="display: none;">
                     
-                    <!-- Report Header for PDF -->
                     <div class="report-metadata" id="reportMetaSection">
                         <div class="meta-item">
                             <span class="meta-label">ชื่อไฟล์ข้อมูล</span>
@@ -256,7 +251,6 @@
                             <div class="h-val" id="hlSingleCount">-</div>
                             <div class="h-sub" id="hlSingleRev">ยอดขายรวม: - บาท</div>
                         </div>
-                        <!-- Debt Cards -->
                         <div class="highlight-card" style="background: linear-gradient(135deg, #be123c 0%, #e11d48 100%);">
                             <i class="fa-solid fa-hand-holding-dollar"></i>
                             <div class="h-label">ลูกค้ามาชำระหนี้ (BL)</div>
@@ -408,6 +402,7 @@
     <div id="freqModal" class="modal"><div class="modal-content" style="max-width:500px;"><div class="modal-header"><h3>สรุปความถี่การใช้บริการ</h3><span class="close-btn" onclick="closeModal('freqModal')">&times;</span></div><div class="modal-body" id="freqModalBody"></div></div></div>
 
     <script>
+        // --- Core Configuration ---
         Chart.defaults.font.family = "'Prompt', sans-serif";
         let rawData = [], filteredData = [], compareData = [], processedCustomers = [];
         let uploadedFileName = ""; 
@@ -439,6 +434,14 @@
             let y = parseInt(p[2]); 
             if(y > 2500) y -= 543; 
             return new Date(y, m, d, 12, 0, 0); 
+        }
+
+        function formatThaiDateLong(date) {
+            if (!date) return '-';
+            const d = date.getDate().toString().padStart(2, '0');
+            const m = (date.getMonth() + 1).toString().padStart(2, '0');
+            const y = date.getFullYear() + 543;
+            return `${d}/${m}/${y}`;
         }
 
         function getControlDate(id) {
@@ -518,7 +521,7 @@
             document.getElementById('reportFileName').textContent = uploadedFileName || '-';
             const sDate = getControlDate('startDate');
             const eDate = getControlDate('endDate');
-            document.getElementById('reportDateRange').textContent = `${sDate ? sDate.toISOString().split('T')[0] : '-'} ถึง ${eDate ? eDate.toISOString().split('T')[0] : '-'}`;
+            document.getElementById('reportDateRange').textContent = `${formatThaiDateLong(sDate)} ถึง ${formatThaiDateLong(eDate)}`;
             document.getElementById('reportGenDate').textContent = new Date().toLocaleString('th-TH');
         }
 
@@ -595,6 +598,7 @@
             const regularDataset = dataset.filter(r => r.__paymentType === 'ชำระปกติ' && !(r['รายการ'] || '').includes('[ตัดคอร์ส]'));
             const regularRev = regularDataset.reduce((s,r) => s + r['ยอดชำระ'], 0);
             const debtRev = dataset.filter(r => r.__paymentType === 'ชำระหนี้').reduce((s,r) => s + r['ยอดชำระ'], 0);
+            
             const payingCustomers = customers.filter(c => (c.totalRegular + c.totalDebt) > 0);
             const regularPayingCustomers = customers.filter(c => c.totalRegular > 0);
             const debtOnlyPayingCustomers = customers.filter(c => c.totalDebt > 0);
@@ -632,17 +636,14 @@
 
         function renderStats() {
             const cur = calculateMetrics(filteredData, processedCustomers);
-            document.getElementById('hlTotalPaying').textContent = `${cur.regularPayingCount.toLocaleString()} คน`;
-            document.getElementById('hlTotalPayingRev').textContent = `ยอดชำระปกติรวม: ${cur.regularRev.toLocaleString()} บาท`;
-            document.getElementById('hlCourseCount').textContent = `${cur.courseCount.toLocaleString()} คน`;
-            document.getElementById('hlCourseRev').textContent = `ยอดขายรวม: ${cur.courseSales.toLocaleString()} บาท`;
-            document.getElementById('hlSingleCount').textContent = `${cur.singleCount.toLocaleString()} คน`;
-            document.getElementById('hlSingleRev').textContent = `ยอดขายรวม: ${cur.singleSales.toLocaleString()} บาท`;
-            document.getElementById('hlDebtCount').textContent = `${cur.debtCount.toLocaleString()} คน`;
-            document.getElementById('hlDebtRev').textContent = `ยอดชำระหนี้รวม: ${cur.debtRev.toLocaleString()} บาท`;
-
+            
             let prev = null;
             if(document.getElementById('compareToggle').checked && compareData.length > 0) {
+                const start = getControlDate('compareStartDate');
+                const end = getControlDate('compareEndDate');
+                const startLimit = start ? new Date(start).setHours(0,0,0,0) : 0;
+                const endLimit = end ? new Date(end).setHours(23,59,59,999) : Infinity;
+
                 const compareHnMap = {};
                 compareData.forEach(r => {
                     if(!r.HN) return;
@@ -650,12 +651,15 @@
                     if(!compareHnMap[hn]) compareHnMap[hn] = { hn, total: 0, totalRegular: 0, totalDebt: 0, visits: new Set(), isCourse: false };
                     compareHnMap[hn].total += r['ยอดชำระ'];
                     if (r.__paymentType === 'ชำระปกติ') {
-                        compareHnMap[hn].totalRegular += r['ยอดชำระ'];
                         const iN = (r['รายการ'] || '').toString().toLowerCase();
                         const q = parseFloat(r['จำนวน'] || 0);
-                        const hasKeywords = iN.includes('คอร์ส') || iN.includes('course') || iN.includes('package') || iN.includes('pkg');
-                        const isBotoxOrUnit = iN.includes('botox') || iN.includes('1u');
-                        if (hasKeywords || (isBotoxOrUnit ? false : q > 1)) compareHnMap[hn].isCourse = true;
+                        const isCutCourse = iN.includes('[ตัดคอร์ส]');
+                        if(!isCutCourse) {
+                            compareHnMap[hn].totalRegular += r['ยอดชำระ'];
+                            const hasKeywords = iN.includes('คอร์ส') || iN.includes('course') || iN.includes('package') || iN.includes('pkg');
+                            const isBotoxOrUnit = iN.includes('botox') || iN.includes('1u');
+                            if (hasKeywords || (isBotoxOrUnit ? false : q > 1)) compareHnMap[hn].isCourse = true;
+                        }
                     } else if (r.__paymentType === 'ชำระหนี้') {
                         compareHnMap[hn].totalDebt += r['ยอดชำระ'];
                     }
@@ -692,6 +696,15 @@
             format('statNewPaying', cur.newPaying, prev?.newPaying, false);
             format('statTotalPaying', cur.totalPaying, prev?.totalPaying, false);
             format('statRepeatRate', cur.repeatRate, prev?.repeatRate, false, true);
+
+            format('hlTotalPaying', cur.regularPayingCount, prev?.regularPayingCount, false, false, "คน");
+            format('hlTotalPayingRev', cur.regularRev, prev?.regularRev, true, false, "บาท");
+            format('hlCourseCount', cur.courseCount, prev?.courseCount, false, false, "คน");
+            format('hlCourseRev', cur.courseSales, prev?.courseSales, true, false, "บาท");
+            format('hlSingleCount', cur.singleCount, prev?.singleCount, false, false, "คน");
+            format('hlSingleRev', cur.singleSales, prev?.singleSales, true, false, "บาท");
+            format('hlDebtCount', cur.debtCount, prev?.debtCount, false, false, "คน");
+            format('hlDebtRev', cur.debtRev, prev?.debtRev, true, false, "บาท");
         }
 
         function renderSegments() {
@@ -708,12 +721,15 @@
             }).join('');
         }
 
+        // --- FULL RESTORE: Exhaustive Category Logic ---
         function getCategoryForRow(row) {
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
-            if (!name) return 'อื่นๆ';
+            if (!name) return 'อื่นๆ / ไม่ระบุรายการ';
+            
+            // High Priority Specifics
             if (name.includes('mounjaro')) return 'Mounjaro';
-            if (name.includes('e-jal')) return 'E-Jal';
-            if (name.includes('ultra for mer') || name.includes('ultraformer') || name.includes('ultra fromer')) return 'Ultrafomer';
+            if (name.includes('e-jal') || name.includes('ejal')) return 'E-Jal';
+            if (name.includes('ultra for mer') || name.includes('ultraformer') || name.includes('ultra fromer') || name.includes('ultra former')) return 'Ultrafomer';
             if (name.includes('aesthefill') || name.includes('aesthe fill')) return 'Aesthe Fill'; 
             if (name.includes('profhilo')) return 'Profhilo';
             if (name.includes('sculptra')) return 'Sculptra';
@@ -721,17 +737,52 @@
             if (name.includes('juvelook')) return 'Juvelook';
             if (name.includes('exosome')) return 'Exosome';
             if (name.includes('morpheus')) return 'Morpheus8'; 
+
+            // Other Categories
+            if (name.includes('ค่าเข้ารับการปรึกษาแพทย์')) return 'ค่าเข้ารับการปรึกษาแพทย์';
+            if (name.includes('melasma') || name.includes('ฉีดฝ้า')) return 'Melasma';
+            if (name.includes('q switch') || name.includes('q-switch')) return 'Q Switch';
+            if (name.includes('bsam')) return 'BSAM';
+            if (name.includes('keloid')) return 'Keloid';
+            if (name.includes('nad')) return 'NAD'; 
+            if (name.includes('ปากกาลดน้ำหนัก') || name.includes('weight loss pen') || name.includes('saxenda')) return 'ปากกาลดน้ำหนัก'; 
+            if (name.includes('peelling') || name.includes('peeling')) return 'Peelling'; 
+            if (name.includes('subsicion') || name.includes('subcision')) return 'Subsicion';
+            if (name.includes('antidark')) return 'Antidark';
+            if (name.includes('helios')) return 'Helios';
             if (name.includes('vella') || name.includes('vela')) return 'Vela';
             if (name.includes('viva')) return 'Viva';
-            if (name.includes('fat') || name.includes('สลายไขมัน') || name.includes('bromi')) return 'Body / Fat / Bromi';
-            if (name.includes('chanel') || name.includes("l'ebss") || name.includes('meso') || name.includes('made') || name.includes('สะกิด')) return 'Meso / Skin Booster';
-            if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || name.includes('vit-c') || name.includes('glow vital white') || name.includes('bornie secret white') || name.includes('extra white plus') || name.includes('onny white') || name.includes('oppa white') || name.includes('glow super glow') || name.includes('aura')) return 'Drip Vitamin';
-            if (name.includes('transamin') || name.includes('whitening')) return 'Transamin / Whitening';
+            if (name.includes('virgin repair') || name.includes('vergin repair') || name.includes('เก้าอี้มหัศจรรย์')) return 'Virgin Repair';
+            if (name.includes('body s')) return 'Body S';
+            if (name.includes('g5')) return 'G5';
+            if (name.includes('transamin') || name.includes('whitening program')) return 'Transamin / Whitening';
+            if (name.includes('rf')) return 'RF';
+            if (name.includes('gc 50000') || name.includes('vitc') || name.includes('push vit c')) return 'Push (Vit C)';
+            if (name.includes('ฉีดเปปไทด์')) return 'Peptide';
+            if (name.includes('evo')) return 'EVO';
+            if (name.includes('cpl')) return 'CPL';
+            if (name.includes('วงเงินเหลือ') || name.includes('บัตร bornsong card 35,000')) return 'วงเงินเหลือ';
+            if (name.includes('liporase')) return 'Liporase';
+            if (name.includes('pms')) return 'PMS';
+            
+            if (name.includes('chanel') || name.includes("l'ebss") || name.includes('inno') || name.includes('sakura') || name.includes('meso') || name.includes('made') || name.includes('ฉีดหน้า') || name.includes('prp') || name.includes('guna collagen') || name.includes('derma care') || name.includes('reborn glass skin') || name.includes('seenskin') || name.includes('ssdn') || name.includes('สะกิด')) return 'Meso / Skin Booster';
+            if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || name.includes('vit-c') || name.includes('glow vital white') || name.includes('bornie secret white') || name.includes('extra white plus') || name.includes('onny white') || name.includes('oppา white') || name.includes('glow super glow') || name.includes('aura')) return 'Drip Vitamin';
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
+            if (name.includes('co2')) return 'Co2 Laser';
+            if (name.includes('slimnow') || name.includes('peptide') || name.includes('คุมหิว')) return 'Slimnow';
+            if (name.includes('dio') || name.includes('ipl')) return 'Diode / IPL';
             if (name.includes('botox') || name.includes('โบ')) return 'Botox';
             if (name.includes('filler') || name.includes('ฟิลเลอร์')) return 'Filler';
-            if (name.includes('hifu') || name.includes('ulthera')) return 'HIFU / Lifting';
-            if (name.includes('laser') || name.includes('pico')) return 'Picolaser';
+            if (name.includes('hifu') || name.includes('ulthera') || name.includes('lifting')) return 'HIFU / Lifting';
+            if (name.includes('laser') || name.includes('pico') || name.includes('เลเซอร์')) return 'Picolaser';
+            if (name.includes('hair') || name.includes('กำจัดขน')) return 'Hair Removal';
+            if (name.includes('fat') || name.includes('สลายไขมัน') || name.includes('bromi')) return 'Body / Fat';
+            if (name.includes('acne') || name.includes('สิว')) return 'Acne Treatment';
+            if (name.includes('ยา') || name.includes('medicine') || name.includes('drug') || name.includes('pharmacy') || name.includes('เวชภัณฑ์')) return 'Pharmacy / Medicine';
+            if (name.includes('treatment') || name.includes('ทรีทเมนท์') || name.includes('นวด') || name.includes('spa') || name.includes('mark collagen') || name.includes('cryo')) return 'Treatment';
+            if (name.includes('ค่าแพทย์') || name.includes('df') || name.includes('doctor') || name.includes('consult') || name.includes('บริการ') || name.includes('service')) return 'Consultation / Service';
+            if (name.includes('product') || name.includes('cream') || name.includes('gel') || name.includes('foam') || name.includes('sunscreen') || name.includes('set')) return 'Products / Skincare';
+            
             return 'อื่นๆ / รายการย่อย';
         }
 
@@ -779,7 +830,7 @@
             const sortedPerformance = Object.entries(itemStats).sort((a,b) => b[1].rev - a[1].rev).slice(0, 10);
             const avgQty = sortedPerformance.reduce((s, x) => s + x[1].qty, 0) / (sortedPerformance.length || 1);
             const avgPrice = sortedPerformance.reduce((s, x) => s + (x[1].rev / x[1].qty), 0) / (sortedPerformance.length || 1);
-            charts.perf = new Chart(document.getElementById('performanceMatrixChart'), { type: 'bubble', data: { datasets: [{ label: 'Top 10 Services', data: sortedPerformance.map(([k, v]) => ({ x: v.qty, y: v.rev / v.qty, r: Math.min(25, Math.sqrt(v.rev) / 25 + 5), label: k, totalRev: v.rev })), backgroundColor: (ctx) => { const v = ctx.raw; if(!v) return 'rgba(99, 102, 241, 0.5)'; if (v.x >= avgQty && v.y >= avgPrice) return 'rgba(16, 185, 129, 0.6)'; if (v.x >= avgQty && v.y < avgPrice) return 'rgba(59, 130, 246, 0.6)'; if (v.x < avgQty && v.y >= avgPrice) return 'rgba(245, 158, 11, 0.6)'; return 'rgba(236, 72, 153, 0.6)'; } }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => { const p = ctx.raw; return [`รายการ: ${p.label}`, `ยอดรวม: ฿${p.totalRev.toLocaleString()}`, `จำนวน: ${p.x} ครั้ง`, `เฉลี่ย: ฿${Math.round(p.y).toLocaleString()}`]; } } } }, scales: { x: { title: { display: true, text: 'จำนวนครั้งที่ขาย (Volume)' } }, y: { title: { display: true, text: 'ราคาเฉลี่ยต่อหน่วย (Avg Price)' } } } } });
+            charts.perf = new Chart(document.getElementById('performanceMatrixChart'), { type: 'bubble', data: { datasets: [{ label: 'Top 10 Items', data: sortedPerformance.map(([k, v]) => ({ x: v.qty, y: v.rev / v.qty, r: Math.min(25, Math.sqrt(v.rev) / 25 + 5), label: k, totalRev: v.rev })), backgroundColor: (ctx) => { const v = ctx.raw; if(!v) return 'rgba(99, 102, 241, 0.5)'; if (v.x >= avgQty && v.y >= avgPrice) return 'rgba(16, 185, 129, 0.6)'; if (v.x >= avgQty && v.y < avgPrice) return 'rgba(59, 130, 246, 0.6)'; if (v.x < avgQty && v.y >= avgPrice) return 'rgba(245, 158, 11, 0.6)'; return 'rgba(236, 72, 153, 0.6)'; } }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => { const p = ctx.raw; return [`รายการ: ${p.label}`, `ยอดรวม: ฿${p.totalRev.toLocaleString()}`, `จำนวน: ${p.x} ครั้ง`, `เฉลี่ย: ฿${Math.round(p.y).toLocaleString()}`]; } } } }, scales: { x: { title: { display: true, text: 'จำนวนครั้งที่ขาย (Volume)' } }, y: { title: { display: true, text: 'ราคาเฉลี่ยต่อหน่วย (Avg Price)' } } } } });
             const freqMap = processedCustomers.reduce((acc, c) => { acc[c.visits.size] = (acc[c.visits.size]||0) + 1; return acc; }, {});
             charts.freq = new Chart(document.getElementById('frequencyChart'), { type: 'bar', data: { labels: Object.keys(freqMap).sort((a,b)=>a-b).map(l => l + ' ครั้ง'), datasets: [{ label: 'จำนวนคน', data: Object.keys(freqMap).sort((a,b)=>a-b).map(l => freqMap[l]), backgroundColor: '#8b5cf6' }] }, options: { responsive: true, maintainAspectRatio: false, onClick: (e, els) => { if(els.length > 0) showFrequencyCustomers(parseInt(Object.keys(freqMap).sort((a,b)=>a-b)[els[0].index])); } } });
         }
@@ -808,7 +859,7 @@
             charts.monthlyCustTrend = new Chart(document.getElementById('monthlyCustomerTrendChart'), { type: 'line', data: { labels: sortedMonths, datasets: [{ label: 'ลูกค้าใหม่', data: sortedMonths.map(m => monthlyStats[m].newHNs.size), borderColor: '#f59e0b', fill: false }, { label: 'ลูกค้าเก่า', data: sortedMonths.map(m => monthlyStats[m].oldHNs.size), borderColor: '#3b82f6', fill: false }, { label: 'จ่ายเงิน', data: sortedMonths.map(m => monthlyStats[m].payingHNs.size), borderColor: '#10b981', fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
         }
 
-        // --- UPDATED: AI Strategic Prompt Function ---
+        // --- UPDATED: AI Strategic Prompt Function (Full 7 Sections) ---
         function showAIModal() {
             const fNum = (n) => n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             const fInt = (n) => n.toLocaleString(undefined, {maximumFractionDigits: 0});
@@ -825,7 +876,9 @@
             prompt += `- ยอดต่อหัว (Avg/Head): ${fNum(cur.avgHead)} บาท/คน\n`;
             prompt += `- ยอดขายลูกค้าใหม่: ${fNum(cur.newSales)} บาท\n`;
             prompt += `- ยอดขายลูกค้าเก่ารวม: ${fNum(cur.oldSales)} บาท\n`;
-            prompt += `- ยอดขายลูกค้าเก่ามาซ้ำ: ${fNum(oldRepeatSalesValue(filteredData, processedCustomers))} บาท (จำนวนคน: ${fInt(cur.oldRepeatCount)} คน)\n`;
+            // Helper for old repeat sales specific to AI prompt
+            const oldRepeatSales = processedCustomers.filter(c => !c.isNew && c.visits.size > 1).reduce((s,c) => s + c.total, 0);
+            prompt += `- ยอดขายลูกค้าเก่ามาซ้ำ: ${fNum(oldRepeatSales)} บาท (จำนวนคน: ${fInt(cur.oldRepeatCount)} คน)\n`;
             prompt += `- จำนวน Visit: ${fInt(cur.visits)} ครั้ง\n`;
             prompt += `- ลูกค้าทั้งหมด: ${fInt(cur.unique)} คน\n`;
             prompt += `- ลูกค้าใหม่ (ลงทะเบียน): ${fInt(cur.newReg)} คน\n`;
@@ -835,10 +888,10 @@
             prompt += `- อัตราลูกค้าเดิม (Repeat Rate): ${cur.repeatRate.toFixed(1)}%\n\n`;
 
             prompt += `--- 2. ประเภทลูกค้าและพฤติกรรมการซื้อ (เฉพาะชำระปกติ) ---\n`;
-            prompt += `- ลูกค้าชำระปกติ: ${fInt(cur.regularPayingCount)} คน (ยอด ${fNum(cur.regularRev)} บ.)\n`;
-            prompt += `- กลุ่มซื้อแบบคอร์ส: ${fInt(cur.courseCount)} คน (ยอด ${fNum(cur.courseSales)} บ.)\n`;
-            prompt += `- กลุ่มซื้อครั้งเดียว: ${fInt(cur.singleCount)} คน (ยอด ${fNum(cur.singleSales)} บ.)\n`;
-            prompt += `- กลุ่มชำระหนี้ (BL): ${fInt(cur.debtCount)} คน (ยอด ${fNum(cur.debtRev)} บ.)\n\n`;
+            prompt += `- ลูกค้าชำระเงินสุทธิ (ชำระปกติ): ${fInt(cur.regularPayingCount)} คน (ยอด ${fNum(cur.regularRev)} บ.)\n`;
+            prompt += `- ลูกค้ากลุ่มซื้อแบบคอร์ส: ${fInt(cur.courseCount)} คน (ยอด ${fNum(cur.courseSales)} บ.)\n`;
+            prompt += `- ลูกค้ากลุ่มซื้อครั้งเดียว: ${fInt(cur.singleCount)} คน (ยอด ${fNum(cur.singleSales)} บ.)\n`;
+            prompt += `- ลูกค้ามาชำระหนี้ (BL): ${fInt(cur.debtCount)} คน (ยอด ${fNum(cur.debtRev)} บ.)\n\n`;
 
             prompt += `--- 3. Spending Segments ---\n`;
             PRICE_RANGES.forEach(r => {
@@ -900,11 +953,6 @@
             openModal('aiModal');
         }
 
-        // Helper for specific repeat sales calculation in prompt
-        function oldRepeatSalesValue(dataset, customers) {
-            return customers.filter(c => !c.isNew && c.visits.size > 1).reduce((s,c) => s + c.total, 0);
-        }
-
         function renderDetailsTable() {
             const filter = document.getElementById('segmentFilter').value;
             const displayData = filter === 'all' ? processedCustomers : processedCustomers.filter(c => c.segmentLabel === filter);
@@ -959,8 +1007,11 @@
             const list = Object.entries(hnGroups).map(([hn, d]) => ({ hn, ...d })).sort((a,b)=>b.total - a.total);
             document.getElementById('listModalTitle').textContent = `📁 ${cat} (${list.length} คน)`;
             let html = `<table style="width:100%"><thead><tr><th style="width:100px;">HN</th><th>ชื่อลูกค้า</th><th style="text-align:right; width:120px;">ยอดชำระ</th><th>รายการสินค้าที่ซื้อ/ทำ</th></tr></thead><tbody>`;
-            list.forEach(c => { html += `<tr><td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td><td><div style="font-weight:600">${c.name}</div></td><td style="text-align:right; font-weight:700; color:var(--primary-color);">${c.total.toLocaleString()}</td><td style="font-size:0.75rem; color:#6b7280; line-height:1.4;">${Array.from(c.items).join(', ')}</td></tr>`; });
-            document.getElementById('listModalBody').innerHTML = html + `</tbody></table>`;
+            list.forEach(c => {
+                html += `<tr><td><span class="clickable" onclick="showCustDetail('${c.hn}')">${c.hn}</span></td><td><div style="font-weight:600">${c.name}</div></td><td style="text-align:right; font-weight:700; color:var(--primary-color);">${c.total.toLocaleString()}</td><td style="font-size:0.75rem; color:#6b7280; line-height:1.4;">${Array.from(c.items).join(', ')}</td></tr>`;
+            });
+            html += `</tbody></table>`;
+            document.getElementById('listModalBody').innerHTML = html;
             openModal('listModal');
         }
 
@@ -974,9 +1025,9 @@
             const element = document.getElementById('dashboardView');
             if (!element) return;
             const originalWidth = element.style.width;
-            element.style.width = "1400px";
+            element.style.width = "1400px"; 
             const metaHeader = document.getElementById('reportMetaSection');
-            metaHeader.style.display = 'grid';
+            metaHeader.style.display = 'grid'; 
             const widthPx = element.offsetWidth;
             const heightPx = element.scrollHeight;
             const opt = {
