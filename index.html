@@ -472,11 +472,15 @@
                 }).filter(r => r.__date);
 
                 if (rawData.length > 0) {
-                    const dates = rawData.map(r => r.__date);
-                    const maxDate = new Date(Math.max(...dates));
-                    const minDate = new Date(Math.min(...dates));
-                    document.getElementById('startDate').value = minDate.toISOString().split('T')[0];
-                    document.getElementById('endDate').value = maxDate.toISOString().split('T')[0];
+                    const dates = rawData.map(r => r.__date).filter(d => d);
+                    if (dates.length > 0) {
+                        // FIX: Use reduce instead of Math.max(...dates) to avoid stack overflow on large files
+                        const minDate = dates.reduce((a, b) => (a < b ? a : b));
+                        const maxDate = dates.reduce((a, b) => (a > b ? a : b));
+                        
+                        document.getElementById('startDate').value = minDate.toISOString().split('T')[0];
+                        document.getElementById('endDate').value = maxDate.toISOString().split('T')[0];
+                    }
                 }
                 ['startDate', 'endDate', 'compareToggle', 'filterBtn', 'aiBtn', 'exportPdfBtn'].forEach(id => document.getElementById(id).disabled = false);
                 document.getElementById('initialState').style.display = 'none';
@@ -721,12 +725,15 @@
             }).join('');
         }
 
-        // --- FULL RESTORE: Exhaustive Category Logic ---
+        // --- UPDATED: Exhaustive Category Logic with Floracard and Expanded Meso ---
         function getCategoryForRow(row) {
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ / ไม่ระบุรายการ';
             
-            // High Priority Specifics
+            // 1. New Category: Floracard (Highest priority)
+            if (name.includes('วงเงิน-vip') || name.includes('เปิดบัตร flora vvip card') || name.includes('เปิดบัตร flora card')) return 'Floracard';
+
+            // 2. High Priority Specifics
             if (name.includes('mounjaro')) return 'Mounjaro';
             if (name.includes('e-jal') || name.includes('ejal')) return 'E-Jal';
             if (name.includes('ultra for mer') || name.includes('ultraformer') || name.includes('ultra fromer') || name.includes('ultra former')) return 'Ultrafomer';
@@ -738,7 +745,15 @@
             if (name.includes('exosome')) return 'Exosome';
             if (name.includes('morpheus')) return 'Morpheus8'; 
 
-            // Other Categories
+            // 3. Updated Category: Meso / Skin Booster (Including Neuraderm, Dermacare, Seen skin)
+            if (name.includes('chanel') || name.includes("l'ebss") || name.includes('inno') || 
+                name.includes('sakura') || name.includes('meso') || name.includes('made') || 
+                name.includes('ฉีดหน้า') || name.includes('prp') || name.includes('guna collagen') || 
+                name.includes('derma care') || name.includes('dermacare') || name.includes('neuraderm') ||
+                name.includes('reborn glass skin') || name.includes('seenskin') || name.includes('seen skin') ||
+                name.includes('ssdn') || name.includes('สะกิด')) return 'Meso / Skin Booster';
+
+            // 4. Other Categories
             if (name.includes('ค่าเข้ารับการปรึกษาแพทย์')) return 'ค่าเข้ารับการปรึกษาแพทย์';
             if (name.includes('melasma') || name.includes('ฉีดฝ้า')) return 'Melasma';
             if (name.includes('q switch') || name.includes('q-switch')) return 'Q Switch';
@@ -765,7 +780,6 @@
             if (name.includes('liporase')) return 'Liporase';
             if (name.includes('pms')) return 'PMS';
             
-            if (name.includes('chanel') || name.includes("l'ebss") || name.includes('inno') || name.includes('sakura') || name.includes('meso') || name.includes('made') || name.includes('ฉีดหน้า') || name.includes('prp') || name.includes('guna collagen') || name.includes('derma care') || name.includes('reborn glass skin') || name.includes('seenskin') || name.includes('ssdn') || name.includes('สะกิด')) return 'Meso / Skin Booster';
             if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || name.includes('vit-c') || name.includes('glow vital white') || name.includes('bornie secret white') || name.includes('extra white plus') || name.includes('onny white') || name.includes('oppา white') || name.includes('glow super glow') || name.includes('aura')) return 'Drip Vitamin';
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
             if (name.includes('co2')) return 'Co2 Laser';
@@ -859,7 +873,6 @@
             charts.monthlyCustTrend = new Chart(document.getElementById('monthlyCustomerTrendChart'), { type: 'line', data: { labels: sortedMonths, datasets: [{ label: 'ลูกค้าใหม่', data: sortedMonths.map(m => monthlyStats[m].newHNs.size), borderColor: '#f59e0b', fill: false }, { label: 'ลูกค้าเก่า', data: sortedMonths.map(m => monthlyStats[m].oldHNs.size), borderColor: '#3b82f6', fill: false }, { label: 'จ่ายเงิน', data: sortedMonths.map(m => monthlyStats[m].payingHNs.size), borderColor: '#10b981', fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
         }
 
-        // --- UPDATED: AI Strategic Prompt Function (Full 7 Sections) ---
         function showAIModal() {
             const fNum = (n) => n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
             const fInt = (n) => n.toLocaleString(undefined, {maximumFractionDigits: 0});
@@ -876,7 +889,6 @@
             prompt += `- ยอดต่อหัว (Avg/Head): ${fNum(cur.avgHead)} บาท/คน\n`;
             prompt += `- ยอดขายลูกค้าใหม่: ${fNum(cur.newSales)} บาท\n`;
             prompt += `- ยอดขายลูกค้าเก่ารวม: ${fNum(cur.oldSales)} บาท\n`;
-            // Helper for old repeat sales specific to AI prompt
             const oldRepeatSales = processedCustomers.filter(c => !c.isNew && c.visits.size > 1).reduce((s,c) => s + c.total, 0);
             prompt += `- ยอดขายลูกค้าเก่ามาซ้ำ: ${fNum(oldRepeatSales)} บาท (จำนวนคน: ${fInt(cur.oldRepeatCount)} คน)\n`;
             prompt += `- จำนวน Visit: ${fInt(cur.visits)} ครั้ง\n`;
