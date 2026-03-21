@@ -556,7 +556,7 @@
             renderDetailsTable();
             populateSegmentFilter();
             renderMonthlyDetailedAnalysis();
-            renderRFMSection(); // ← RFM added here
+            renderRFMSection();
 
             document.getElementById('reportFileName').textContent = uploadedFileName || '-';
             const sDate = getControlDate('startDate');
@@ -787,6 +787,20 @@
             if (!name) return 'อื่นๆ / ไม่ระบุรายการ';
             
             if (name.includes('วงเงิน-vip') || name.includes('เปิดบัตร flora vvip card') || name.includes('เปิดบัตร flora card')) return 'Floracard';
+
+            // ===== ร้อยไหม (Thread Lift) =====
+            if (name.includes('ร้อยไหม') || name.includes('thread lift') || name.includes('threadlift') ||
+                name.includes('mono thread') || name.includes('cog thread') || name.includes('pdo thread') ||
+                name.includes('pcl thread') || name.includes('plla thread') || name.includes('silhouette') ||
+                name.includes('เส้นไหม') || name.includes('ไหมร้อย') ||
+                name.includes('ไหมล็อค') || name.includes('ไหม lock') || name.includes('ไหม log') ||
+                (name.includes('thread') && !name.includes('instagram') && !name.includes('twitter'))) return 'ร้อยไหม';
+            // ===== END ร้อยไหม =====
+
+            // ===== VITARAN =====
+            if (name.includes('vitaran')) return 'VITARAN';
+            // ===== END VITARAN =====
+
             if (name.includes('mounjaro')) return 'Mounjaro';
             if (name.includes('e-jal') || name.includes('ejal')) return 'E-Jal';
             if (name.includes('ultra for mer') || name.includes('ultraformer') || name.includes('ultra fromer') || name.includes('ultra former')) return 'Ultrafomer';
@@ -938,11 +952,10 @@
             charts.monthlyCustTrend = new Chart(document.getElementById('monthlyCustomerTrendChart'), { type: 'line', data: { labels: sortedMonths, datasets: [{ label: 'ลูกค้าใหม่', data: sortedMonths.map(m => monthlyStats[m].newHNs.size), borderColor: '#f59e0b', fill: false }, { label: 'ลูกค้าเก่า', data: sortedMonths.map(m => monthlyStats[m].oldHNs.size), borderColor: '#3b82f6', fill: false }, { label: 'จ่ายเงิน', data: sortedMonths.map(m => monthlyStats[m].payingHNs.size), borderColor: '#10b981', fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
         }
 
-        /* ====== RFM MODEL (ADDED) ====== */
+        /* ====== RFM MODEL ====== */
         function renderRFMSection() {
             if (!processedCustomers || processedCustomers.length === 0) return;
 
-            // Use latest date in rawData (entire dataset) as reference point
             const allDates = rawData.map(r => r.__date).filter(Boolean);
             if (allDates.length === 0) return;
             const refDate = allDates.reduce((a, b) => (a > b ? a : b));
@@ -999,7 +1012,6 @@
                 </div>`;
             }).join('');
 
-            // Donut Chart
             if (charts.rfmDonut) charts.rfmDonut.destroy();
             charts.rfmDonut = new Chart(document.getElementById('rfmDonutChart'), {
                 type: 'doughnut',
@@ -1027,7 +1039,6 @@
                 }
             });
 
-            // Revenue Bar Chart
             if (charts.rfmRevenue) charts.rfmRevenue.destroy();
             charts.rfmRevenue = new Chart(document.getElementById('rfmRevenueChart'), {
                 type: 'bar',
@@ -1058,12 +1069,10 @@
                 }
             });
 
-            // Store for modal use
             window._rfmGroups = rfmGroups;
             window._rfmRefDate = refDate;
         }
 
-        // RFM sort state: { col: 'total'|'lastDate'|'diffMonths'|'name', dir: 'asc'|'desc' }
         window._rfmSort = { col: 'total', dir: 'desc' };
 
         function showRFMModal(groupKey, sortCol, sortDir) {
@@ -1071,7 +1080,6 @@
             const group = window._rfmGroups[groupKey];
             if (!group) return;
 
-            // persist/update sort state
             if (sortCol) {
                 if (window._rfmSort.col === sortCol) {
                     window._rfmSort.dir = window._rfmSort.dir === 'asc' ? 'desc' : 'asc';
@@ -1080,20 +1088,17 @@
                     window._rfmSort.dir = sortDir || 'desc';
                 }
             } else {
-                // fresh open: reset to default
                 window._rfmSort = { col: 'total', dir: 'desc' };
             }
 
             const { col, dir } = window._rfmSort;
             const refDate = window._rfmRefDate || new Date();
 
-            // Build enriched list with diffMonths
             const enriched = group.map(c => ({
                 ...c,
                 diffMonths: parseFloat(((refDate - c.lastDate) / (1000 * 60 * 60 * 24 * 30.44)).toFixed(1))
             }));
 
-            // Sort
             const sorted = enriched.sort((a, b) => {
                 let av, bv;
                 if (col === 'total')      { av = a.total;      bv = b.total; }
@@ -1117,7 +1122,6 @@
             const dotColor = groupKey === 'active' ? '#10b981' : groupKey === 'fading' ? '#f59e0b' : '#ef4444';
             const bg      = groupKey === 'active' ? '#d1fae5' : groupKey === 'fading' ? '#fef3c7' : '#fee2e2';
 
-            // Helper: render sort arrow
             const arrow = (c) => {
                 const isActive = col === c;
                 const icon = isActive ? (dir === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort';
@@ -1249,7 +1253,6 @@
                 prompt += `- เดือน ${m} | ยอดขาย: ${fNum(s.rev)} บ. | ลูกค้า: ${fInt(s.all.size)} (ใหม่: ${fInt(s.new.size)}, จ่ายเงิน: ${fInt(s.pay.size)})\n`;
             });
 
-            // RFM summary in AI prompt
             if (window._rfmGroups && window._rfmRefDate) {
                 prompt += `\n--- 8. RFM Customer Loyalty ---\n`;
                 const rfmG = window._rfmGroups;
