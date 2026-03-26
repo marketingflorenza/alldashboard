@@ -362,6 +362,7 @@
                                         <th style="text-align:center; color:#10b981;">จ่ายเงิน</th>
                                         <th style="text-align:center; color:#6366f1;">ตัดคอร์ส</th>
                                         <th style="text-align:right">ยอดรวม</th>
+                                        <th style="text-align:center; color:#6366f1;">% รายได้</th>
                                         <th style="text-align:center">Drilldown</th>
                                     </tr>
                                 </thead>
@@ -863,6 +864,7 @@
             return 'อื่นๆ / รายการย่อย';
         }
 
+        // ===== MODIFIED FUNCTION: เพิ่มคอลัมน์ % รายได้ =====
         function updateCategoryStatsTable() {
             const start = getControlDate('startDate');
             const end = getControlDate('endDate');
@@ -885,14 +887,17 @@
             }, {});
 
             const curData = getCatData(filteredData);
+            const totalRev = Object.values(curData).reduce((s, c) => s + c.rev, 0); // คำนวณยอดรวมทั้งหมด
             const sortedKeys = Object.keys(curData).sort((a,b) => curData[b].rev - curData[a].rev);
             document.getElementById('categoryStatsBody').innerHTML = sortedKeys.map(k => {
                 const c = curData[k];
                 const allHNs = Object.keys(c.customers);
                 const payingCount = allHNs.filter(h => c.customers[h] > 0).length;
-                return `<tr><td style="font-weight:700">${k}</td><td style="color:#666; font-size:0.7rem;">${Array.from(c.items).slice(0,2).join(', ')}..</td><td style="text-align:center; font-weight:600;">${allHNs.length}</td><td style="text-align:center; color:#f59e0b;">${c.newCusts.size}</td><td style="text-align:center; color:#3b82f6;">${c.oldCusts.size}</td><td style="text-align:center; color:#10b981;">${payingCount}</td><td style="text-align:center; color:#6366f1;">${allHNs.length - payingCount}</td><td style="text-align:right; font-weight:700">${c.rev.toLocaleString()}</td><td style="text-align:center"><button class="btn-sm" onclick="showCategoryCustomers('${k}')">ดูรายชื่อ</button></td></tr>`;
+                const pct = totalRev > 0 ? ((c.rev / totalRev) * 100).toFixed(1) : '0.0'; // คำนวณ %
+                return `<tr><td style="font-weight:700">${k}</td><td style="color:#666; font-size:0.7rem;">${Array.from(c.items).slice(0,2).join(', ')}..</td><td style="text-align:center; font-weight:600;">${allHNs.length}</td><td style="text-align:center; color:#f59e0b;">${c.newCusts.size}</td><td style="text-align:center; color:#3b82f6;">${c.oldCusts.size}</td><td style="text-align:center; color:#10b981;">${payingCount}</td><td style="text-align:center; color:#6366f1;">${allHNs.length - payingCount}</td><td style="text-align:right; font-weight:700">${c.rev.toLocaleString()}</td><td style="text-align:center"><span style="background:#ede9fe;color:#6366f1;padding:3px 9px;border-radius:10px;font-size:0.8rem;font-weight:700">${pct}%</span></td><td style="text-align:center"><button class="btn-sm" onclick="showCategoryCustomers('${k}')">ดูรายชื่อ</button></td></tr>`;
             }).join('');
         }
+        // ===== END MODIFIED FUNCTION =====
 
         function renderCharts() {
             Object.values(charts).forEach(c => { if(c && typeof c.destroy === 'function') c.destroy(); });
