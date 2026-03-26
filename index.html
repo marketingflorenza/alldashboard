@@ -783,6 +783,10 @@
             }).join('');
         }
 
+        // =====================================================================
+        // FIX 2 & 3: getCategoryForRow — เพิ่ม ไหมสปริง + epiticon → ร้อยไหม
+        //                              เพิ่ม d tox / dtox ตับ → Drip Vitamin
+        // =====================================================================
         function getCategoryForRow(row) {
             let name = (row['รายการ'] || '').toString().toLowerCase().trim();
             if (!name) return 'อื่นๆ / ไม่ระบุรายการ';
@@ -795,6 +799,7 @@
                 name.includes('pcl thread') || name.includes('plla thread') || name.includes('silhouette') ||
                 name.includes('เส้นไหม') || name.includes('ไหมร้อย') ||
                 name.includes('ไหมล็อค') || name.includes('ไหม lock') || name.includes('ไหม log') ||
+                name.includes('ไหมสปริง') || name.includes('epiticon') ||
                 (name.includes('thread') && !name.includes('instagram') && !name.includes('twitter'))) return 'ร้อยไหม';
             // ===== END ร้อยไหม =====
 
@@ -844,7 +849,16 @@
             if (name.includes('liporase')) return 'Liporase';
             if (name.includes('pms')) return 'PMS';
             
-            if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || name.includes('celeb') || name.includes('detox') || name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || name.includes('vit-c') || name.includes('glow vital white') || name.includes('bornie secret white') || name.includes('extra white plus') || name.includes('onny white') || name.includes('oppα white') || name.includes('glow super glow') || name.includes('aura')) return 'Drip Vitamin';
+            // =====================================================================
+            // FIX 3: เพิ่ม d tox / dtox ตับ เข้า Drip Vitamin (ก่อน block เดิม)
+            // =====================================================================
+            if (name.includes('drip') || name.includes('diamond') || name.includes('daimond') || 
+                name.includes('celeb') || name.includes('detox') || name.includes('d tox') || name.includes('dtox') ||
+                name.includes('vitamin') || name.includes('วิตามิน') || name.includes('healthy bright') || 
+                name.includes('vit-c') || name.includes('glow vital white') || name.includes('bornie secret white') || 
+                name.includes('extra white plus') || name.includes('onny white') || name.includes('oppα white') || 
+                name.includes('glow super glow') || name.includes('aura')) return 'Drip Vitamin';
+
             if ((name.includes('ศัลยกรรม') || name.includes('เสริมจมูก') || name.includes('ตา') || name.includes('คาง')) && !name.includes('โทรตาม') && !name.includes('botox')) return 'Surgery';
             if (name.includes('co2')) return 'Co2 Laser';
             if (name.includes('slimnow') || name.includes('peptide') || name.includes('คุมหิว')) return 'Slimnow';
@@ -864,13 +878,18 @@
             return 'อื่นๆ / รายการย่อย';
         }
 
-        // ===== MODIFIED FUNCTION: เพิ่มคอลัมน์ % รายได้ =====
+        // =====================================================================
+        // FIX 1: updateCategoryStatsTable — ยอดรวม % รายได้ รวมยอดชำระหนี้ด้วย
+        // getCatData รวม r['ยอดชำระ'] ทุก paymentType อยู่แล้ว (ไม่กรอง)
+        // totalRev จึงนับจาก filteredData.reduce ทั้งหมด ไม่เฉพาะ ชำระปกติ
+        // =====================================================================
         function updateCategoryStatsTable() {
             const start = getControlDate('startDate');
             const end = getControlDate('endDate');
             const startLimit = start ? new Date(start).setHours(0,0,0,0) : 0;
             const endLimit = end ? new Date(end).setHours(23,59,59,999) : Infinity;
 
+            // รวมยอดชำระทุกประเภท (ชำระปกติ + ชำระหนี้) ในแต่ละ category
             const getCatData = (data) => data.reduce((acc, r) => {
                 const c = getCategoryForRow(r);
                 if(!acc[c]) acc[c] = { rev:0, items: new Set(), customers: {}, newCusts: new Set(), oldCusts: new Set() };
@@ -887,17 +906,19 @@
             }, {});
 
             const curData = getCatData(filteredData);
-            const totalRev = Object.values(curData).reduce((s, c) => s + c.rev, 0); // คำนวณยอดรวมทั้งหมด
+
+            // FIX 1: totalRev = ยอดรวมทุกประเภทชำระจาก filteredData (รวมหนี้)
+            const totalRev = filteredData.reduce((s, r) => s + (r['ยอดชำระ'] || 0), 0);
+
             const sortedKeys = Object.keys(curData).sort((a,b) => curData[b].rev - curData[a].rev);
             document.getElementById('categoryStatsBody').innerHTML = sortedKeys.map(k => {
                 const c = curData[k];
                 const allHNs = Object.keys(c.customers);
                 const payingCount = allHNs.filter(h => c.customers[h] > 0).length;
-                const pct = totalRev > 0 ? ((c.rev / totalRev) * 100).toFixed(1) : '0.0'; // คำนวณ %
+                const pct = totalRev > 0 ? ((c.rev / totalRev) * 100).toFixed(1) : '0.0';
                 return `<tr><td style="font-weight:700">${k}</td><td style="color:#666; font-size:0.7rem;">${Array.from(c.items).slice(0,2).join(', ')}..</td><td style="text-align:center; font-weight:600;">${allHNs.length}</td><td style="text-align:center; color:#f59e0b;">${c.newCusts.size}</td><td style="text-align:center; color:#3b82f6;">${c.oldCusts.size}</td><td style="text-align:center; color:#10b981;">${payingCount}</td><td style="text-align:center; color:#6366f1;">${allHNs.length - payingCount}</td><td style="text-align:right; font-weight:700">${c.rev.toLocaleString()}</td><td style="text-align:center"><span style="background:#ede9fe;color:#6366f1;padding:3px 9px;border-radius:10px;font-size:0.8rem;font-weight:700">${pct}%</span></td><td style="text-align:center"><button class="btn-sm" onclick="showCategoryCustomers('${k}')">ดูรายชื่อ</button></td></tr>`;
             }).join('');
         }
-        // ===== END MODIFIED FUNCTION =====
 
         function renderCharts() {
             Object.values(charts).forEach(c => { if(c && typeof c.destroy === 'function') c.destroy(); });
